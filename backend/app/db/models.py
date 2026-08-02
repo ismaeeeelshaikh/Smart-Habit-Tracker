@@ -1,0 +1,194 @@
+import uuid
+import enum
+from datetime import datetime, time
+from sqlalchemy import (
+    Column, String, Boolean, Integer, ForeignKey, DateTime, Time, Enum, CheckConstraint, Index, func, text
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from .base import Base
+
+class DayOfWeekEnum(str, enum.Enum):
+    mon = 'mon'
+    tue = 'tue'
+    wed = 'wed'
+    thu = 'thu'
+    fri = 'fri'
+    sat = 'sat'
+    sun = 'sun'
+
+class PriorityEnum(str, enum.Enum):
+    high = 'high'
+    medium = 'medium'
+    low = 'low'
+
+class ReminderStatusEnum(str, enum.Enum):
+    pending = 'pending'
+    done = 'done'
+    later = 'later'
+    skipped = 'skipped'
+
+class RecurrenceRuleEnum(str, enum.Enum):
+    none = 'none'
+    daily = 'daily'
+    weekdays = 'weekdays'
+
+class CompletionActionEnum(str, enum.Enum):
+    done = 'done'
+    later = 'later'
+    skipped = 'skipped'
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    timezone = Column(String(64), nullable=False, default='UTC')
+    telegram_chat_id = Column(String(64), nullable=True)
+    telegram_username = Column(String(255), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    onboarding_completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
+
+    # Relationships
+    schedule_blocks = relationship("ScheduleBlock", back_populates="user", cascade="all, delete-orphan")
+    goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
+    reminders = relationship("Reminder", back_populates="user", cascade="all, delete-orphan")
+    completion_logs = relationship("CompletionLog", back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    telegram_link_codes = relationship("TelegramLinkCode", back_populates="user", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index('idx_users_email', func.lower(email), unique=True),
+        Index('idx_users_telegram_chat_id', telegram_chat_id, unique=True, postgresql_where=text("telegram_chat_id IS NOT NULL")),
+    )
+
+class ScheduleBlock(Base):
+    __tablename__ = 'schedule_blocks'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    day_of_week = Column(Enum(DayOfWeekEnum, name='day_of_week_enum'), nullable=False)
+    label = Column(String(100), nullable=False)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
+    is_flexible_block = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="schedule_blocks")
+
+    __table_args__ = (
+        CheckConstraint(
+            "(is_flexible_block = true AND start_time IS NULL AND end_time IS NULL) OR "
+            "(is_flexible_block = false AND start_time IS NOT NULL AND end_time IS NOT NULL AND end_time > start_time)",
+            name='chk_fixed_block_has_times'
+        ),
+        Index('idx_schedule_blocks_user_day', user_id, day_of_week),
+    )
+
+class Goal(Base):
+    __tablename__ = 'goals'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    name = Column(String(150), nullable=False)
+    priority = Column(Enum(PriorityEnum, name='priority_enum'), nullable=False)
+    estimated_duration_minutes = Column(Integer, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="goals")
+    reminders = relationship("Reminder", back_populates="goal")
+
+    __table_args__ = (
+        CheckConstraint("estimated_duration_minutes > 0", name="chk_goals_estimated_duration_minutes_positive"),
+        Index('idx_goals_user_active', user_id, is_active),
+    )
+
+class Reminder(Base):
+    __tablename__ = 'reminders'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    goal_id = Column(UUID(as_uuid=True), ForeignKey('goals.id', ondelete='SET NULL'), nullable=True)
+    label = Column(String(150), nullable=False)
+    scheduled_time = Column(DateTime(timezone=True), nullable=False)
+    status = Column(Enum(ReminderStatusEnum, name='reminder_status_enum'), nullable=False, default=ReminderStatusEnum.pending)
+    is_recurring = Column(Boolean, nullable=False, default=False)
+    recurrence_rule = Column(Enum(RecurrenceRuleEnum, name='recurrence_rule_enum'), nullable=False, default=RecurrenceRuleEnum.none)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="reminders")
+    goal = relationship("Goal", back_populates="reminders")
+    completion_logs = relationship("CompletionLog", back_populates="reminder", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        CheckConstraint(
+            "(is_recurring = false AND recurrence_rule = 'none') OR "
+            "(is_recurring = true AND recurrence_rule != 'none')",
+            name='chk_recurring_has_rule'
+        ),
+        Index('idx_reminders_user_time', user_id, scheduled_time),
+        Index('idx_reminders_user_status', user_id, status),
+        Index('idx_reminders_goal', goal_id, postgresql_where=text("goal_id IS NOT NULL")),
+    )
+
+class CompletionLog(Base):
+    __tablename__ = 'completion_logs'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    reminder_id = Column(UUID(as_uuid=True), ForeignKey('reminders.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    action = Column(Enum(CompletionActionEnum, name='completion_action_enum'), nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
+    reminder = relationship("Reminder", back_populates="completion_logs")
+    user = relationship("User", back_populates="completion_logs")
+
+    __table_args__ = (
+        Index('idx_completion_logs_user_timestamp', user_id, timestamp),
+        Index('idx_completion_logs_reminder', reminder_id),
+    )
+
+class RefreshToken(Base):
+    __tablename__ = 'refresh_tokens'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    token_hash = Column(String(255), nullable=False, unique=True)
+    issued_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    replaced_by_token_id = Column(UUID(as_uuid=True), ForeignKey('refresh_tokens.id'), nullable=True)
+    user_agent = Column(String(255), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+
+    user = relationship("User", back_populates="refresh_tokens")
+    replaced_by = relationship("RefreshToken", remote_side=[id])
+
+    __table_args__ = (
+        Index('idx_refresh_tokens_user', user_id),
+        Index('idx_refresh_tokens_hash', token_hash, unique=True),
+    )
+
+class TelegramLinkCode(Base):
+    __tablename__ = 'telegram_link_codes'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    code = Column(String(12), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
+    user = relationship("User", back_populates="telegram_link_codes")
+
+    __table_args__ = (
+        Index('idx_telegram_link_codes_code', code, unique=True, postgresql_where=text("consumed_at IS NULL")),
+    )

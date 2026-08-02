@@ -1,22 +1,37 @@
-import { useState } from 'react'
-import './index.css'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { Login } from './pages/Login';
+import { Signup } from './pages/Signup';
 
-function App() {
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--color-bg)]">
-      <div className="text-center bg-[var(--color-surface)] p-8 rounded-[10px] border border-[var(--color-border)] max-w-lg w-full">
-        <h1 className="text-3xl font-semibold mb-4" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          Personal Time Intelligence
-        </h1>
-        <p className="text-[var(--color-ink-muted)] mb-8">
-          Welcome to the scheduling-aware habit assistant.
-        </p>
-        <button className="bg-[var(--color-free)] text-white px-6 py-3 rounded-[10px] font-medium hover:brightness-95 transition-all">
-          Get Started
-        </button>
-      </div>
-    </div>
-  )
-}
+const DashboardPlaceholder: React.FC = () => {
+    return (
+        <div className="flex h-screen flex-col items-center justify-center p-8 text-center">
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="mt-4 text-gray-600">You have successfully authenticated.</p>
+        </div>
+    );
+};
 
-export default App
+const App: React.FC = () => {
+    return (
+        <AuthProvider>
+            <BrowserRouter>
+                <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/signup" element={<Signup />} />
+                    
+                    <Route element={<ProtectedRoute />}>
+                        <Route path="/dashboard" element={<DashboardPlaceholder />} />
+                    </Route>
+
+                    {/* Default fallback */}
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+            </BrowserRouter>
+        </AuthProvider>
+    );
+};
+
+export default App;
