@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api.endpoints import auth
+from app.api.endpoints import auth, schedule, goals
 from app.core.rate_limit import limiter
 
 app = FastAPI(title="Personal Time Intelligence API")
@@ -24,6 +24,8 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(schedule.router, prefix="/api/schedule", tags=["schedule"])
+app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 
 @app.get("/health")
 async def health_check():

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { getScheduleBlocks, getGoals } from '../api';
+import { Button } from '../components/ui/Button';
 
 export const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -27,68 +29,81 @@ export const Login: React.FC = () => {
 
             const data = await res.json();
             login(data.access_token);
-            navigate('/dashboard');
+            
+            // Heuristic check for onboarding status
+            try {
+                const [blocks, goals] = await Promise.all([
+                    getScheduleBlocks(),
+                    getGoals()
+                ]);
+                if (blocks.length === 0 && goals.length === 0) {
+                    navigate('/onboarding/schedule');
+                } else {
+                    navigate('/dashboard');
+                }
+            } catch (err) {
+                // Fallback on error
+                navigate('/dashboard');
+            }
         } catch (err: any) {
             setError(err.message);
         }
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-            <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-sm">
+        <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)] p-4">
+            <div className="w-full max-w-md space-y-8 rounded-[10px] bg-[var(--color-surface)] p-8 shadow-sm border border-[var(--color-border)]">
                 <div className="text-center">
-                    <h2 className="text-3xl font-bold tracking-tight text-gray-900">Sign in</h2>
-                    <p className="mt-2 text-sm text-gray-600">Welcome back to Personal Time Intelligence</p>
+                    <h2 className="text-[24px] font-display font-semibold text-[var(--color-ink)]">Sign in</h2>
+                    <p className="mt-2 text-[15px] font-inter text-[var(--color-ink-muted)]">Welcome back to Personal Time Intelligence</p>
                 </div>
                 
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                     {error && (
-                        <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+                        <div className="rounded-[10px] bg-[var(--color-warning-bg)] p-4 text-[13px] text-[var(--color-ink)] border border-[var(--color-border)] font-medium">
                             {error}
                         </div>
                     )}
                     
-                    <div className="space-y-4 rounded-md shadow-sm">
+                    <div className="space-y-4">
                         <div>
-                            <label className="sr-only" htmlFor="email">Email address</label>
+                            <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="email">Email address</label>
                             <input
                                 id="email"
                                 type="email"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="relative block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                                className="block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] py-[10px] px-3 text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] sm:text-[15px]"
                                 placeholder="Email address"
                             />
                         </div>
                         <div>
-                            <label className="sr-only" htmlFor="password">Password</label>
+                            <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="password">Password</label>
                             <input
                                 id="password"
                                 type="password"
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="relative block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                                className="block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] py-[10px] px-3 text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] sm:text-[15px]"
                                 placeholder="Password"
                             />
                         </div>
                     </div>
 
-                    <div>
-                        <button
-                            type="submit"
-                            className="flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                        >
-                            Sign in
-                        </button>
-                    </div>
+                    <Button type="submit" className="w-full">
+                        Sign in
+                    </Button>
                 </form>
                 
-                <div className="text-center text-sm">
-                    <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+                <div className="text-center text-[15px] space-y-3 flex flex-col">
+                    <Link to="/signup" className="font-medium text-[var(--color-free)] hover:brightness-90 transition-all">
                         Don't have an account? Sign up
                     </Link>
+                    <span title="Coming soon" className="font-medium text-[var(--color-ink-muted)] opacity-50 cursor-not-allowed pointer-events-none text-[13px]">
+                        Forgot password?
+                    </span>
                 </div>
             </div>
         </div>

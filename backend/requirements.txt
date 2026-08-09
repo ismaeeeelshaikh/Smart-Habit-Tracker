@@ -9,6 +9,5 @@ pydantic-settings
 passlib
 bcrypt==3.2.2
 python-jose[cryptography]
-apscheduler
 slowapi
 email-validator
