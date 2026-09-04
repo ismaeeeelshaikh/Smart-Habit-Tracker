@@ -5,8 +5,14 @@ import { Badge } from '../components/ui/Badge';
 import { WeekStrip } from '../components/WeekStrip';
 import type { DaySchedule, TimeBlock } from '../components/WeekStrip';
 import { useAuth } from '../contexts/AuthContext';
-import { getNextSuggestion, getScheduleBlocks, getTodaysFreeSlots } from '../api';
-import type { DayOfWeek, NextSuggestion, ScheduleBlock, TodayFreeSlots } from '../types';
+import { getNextSuggestion, getScheduleBlocks, getTodaysFreeSlots, getWeeklyStats } from '../api';
+import type {
+  DayOfWeek,
+  NextSuggestion,
+  ScheduleBlock,
+  TodayFreeSlots,
+  WeeklyStats,
+} from '../types';
 
 const DAYS: { id: DayOfWeek; name: string }[] = [
   { id: 'mon', name: 'MON' },
@@ -99,6 +105,9 @@ export const Dashboard = () => {
   const [next, setNext] = useState<NextSuggestion | null>(null);
   const [nextError, setNextError] = useState(false);
 
+  const [stats, setStats] = useState<WeeklyStats | null>(null);
+  const [statsError, setStatsError] = useState(false);
+
   const loadSchedule = useCallback(async () => {
     setIsScheduleLoading(true);
     setScheduleError(false);
@@ -129,11 +138,21 @@ export const Dashboard = () => {
     }
   }, []);
 
+  const loadStats = useCallback(async () => {
+    setStatsError(false);
+    try {
+      setStats(await getWeeklyStats());
+    } catch {
+      setStatsError(true);
+    }
+  }, []);
+
   useEffect(() => {
     loadSchedule();
     loadToday();
     loadNext();
-  }, [loadSchedule, loadToday, loadNext]);
+    loadStats();
+  }, [loadSchedule, loadToday, loadNext, loadStats]);
 
   const greetingName = user?.email?.split('@')[0] ?? '';
 
@@ -248,6 +267,37 @@ export const Dashboard = () => {
           )}
         </Card>
       </div>
+
+      <Card className="p-6">
+        <h3 className="font-display font-semibold text-[18px] mb-4">This Week at a Glance</h3>
+        {statsError ? (
+          <CardError message="Stats unavailable." onRetry={loadStats} />
+        ) : !stats ? (
+          <Spinner />
+        ) : stats.total_actions === 0 ? (
+          <p className="text-[var(--color-ink-muted)] text-[13px]">
+            No activity recorded yet this week.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-baseline gap-2">
+              <span className="font-display font-semibold text-[24px]">
+                {stats.overall.completion_rate}%
+              </span>
+              <span className="text-[13px] text-[var(--color-ink-muted)]">
+                completed ({stats.overall.completed} of {stats.overall.total})
+              </span>
+            </div>
+            {/* A small bar, not a chart — per App Flow Document Section 5. */}
+            <div className="h-2 rounded-full bg-[var(--color-border)] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[var(--color-free)] transition-all"
+                style={{ width: `${stats.overall.completion_rate}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </Card>
 
       <nav className="flex flex-wrap gap-4 text-[15px] font-inter">
         <Link to="/schedule" className="text-[var(--color-free)] hover:brightness-90 font-medium">

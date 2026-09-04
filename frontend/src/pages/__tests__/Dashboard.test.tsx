@@ -4,11 +4,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Dashboard } from '../Dashboard';
 import { makeUser, mockFetch, renderWithProviders } from '../../test/utils';
 
+/** Auth plus the stats card every Dashboard render fetches. */
 const authed = (overrides = {}) => ({
     '/auth/refresh': { body: { access_token: 'tok' } },
     '/auth/me': {
         body: makeUser({ onboarding_completed_at: '2026-02-01T00:00:00Z', ...overrides }),
     },
+    '/api/stats/weekly': { body: makeStats() },
+});
+
+const makeStats = (overrides = {}) => ({
+    timezone: 'UTC',
+    week_start: '2026-09-07',
+    week_end: '2026-09-13',
+    by_priority: {
+        high: { completed: 0, total: 0, completion_rate: 0 },
+        medium: { completed: 0, total: 0, completion_rate: 0 },
+        low: { completed: 0, total: 0, completion_rate: 0 },
+    },
+    overall: { completed: 3, total: 4, completion_rate: 75 },
+    most_skipped: null,
+    total_actions: 5,
+    ...overrides,
 });
 
 const noSlots = {
@@ -140,6 +157,29 @@ describe('Dashboard', () => {
         expect(
             await screen.findByText(/reminders won't be delivered/),
         ).toBeInTheDocument();
+    });
+
+    it('summarises the week as a single completion rate', async () => {
+        mockFetch({ ...authed(), '/api/schedule/': { body: [] }, ...noSlots, ...noSuggestion });
+
+        renderWithProviders(<Dashboard />);
+
+        expect(await screen.findByText('75%')).toBeInTheDocument();
+        expect(screen.getByText('completed (3 of 4)')).toBeInTheDocument();
+    });
+
+    it('says stats are unavailable rather than showing a blank week', async () => {
+        mockFetch({
+            ...authed(),
+            '/api/schedule/': { body: [] },
+            ...noSlots,
+            ...noSuggestion,
+            '/api/stats/weekly': { status: 500 },
+        });
+
+        renderWithProviders(<Dashboard />);
+
+        expect(await screen.findByText('Stats unavailable.')).toBeInTheDocument();
     });
 
     it('drops the Telegram banner once connected', async () => {

@@ -13,6 +13,7 @@ import type {
     ScheduleBlockUpdate,
     TodayFreeSlots,
     User,
+    WeeklyStats,
     WeekFreeSlots,
 } from './types';
 
@@ -208,4 +209,14 @@ export const updateReminderStatus = (id: string, status: ReminderStatus): Promis
         `/api/reminders/${id}/status`,
         jsonBody('PUT', { status }),
         "Couldn't update reminder.",
+    );
+
+// --- Stats -----------------------------------------------------------------
+
+/** `weekStart` may be any date in the week; the server snaps it to that Monday. */
+export const getWeeklyStats = (weekStart?: string): Promise<WeeklyStats> =>
+    request<WeeklyStats>(
+        `/api/stats/weekly${weekStart ? `?week_start=${weekStart}` : ''}`,
+        {},
+        "Couldn't load stats for this week.",
     );

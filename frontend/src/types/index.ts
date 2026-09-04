@@ -150,3 +150,27 @@ export interface ReminderFilters {
     start?: string;
     end?: string;
 }
+
+// --- Stats -----------------------------------------------------------------
+
+export interface CompletionTally {
+    completed: number;
+    total: number;
+    /** Already rounded to a whole percent by the server. */
+    completion_rate: number;
+}
+
+export interface WeeklyStats {
+    timezone: string;
+    /** Monday of the week, as a local date. */
+    week_start: string;
+    week_end: string;
+    by_priority: Record<Priority, CompletionTally>;
+    overall: CompletionTally;
+    most_skipped: { label: string; skips: number } | null;
+    /**
+     * Raw completion_logs rows in the week. Zero means nothing happened at all,
+     * which reads differently from a 0% completion rate.
+     */
+    total_actions: number;
+}
