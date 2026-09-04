@@ -12,13 +12,13 @@ import uuid
 from pathlib import Path
 
 import pytest
-from alembic.autogenerate import compare_metadata
-from alembic.config import Config
-from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 from alembic import command
+from alembic.autogenerate import compare_metadata
+from alembic.config import Config
+from alembic.migration import MigrationContext
 from app.core.config import settings
 from app.db.base import Base
 
@@ -101,7 +101,8 @@ def test_env_py_registers_the_models(migrated_db):
     autogenerate then proposes dropping every table. Running the real CLI in a
     subprocess is the only way to see what a developer would see.
     """
-    url = make_url(str(migrated_db.url)).set(drivername="postgresql+asyncpg")
+    # migrated_db.url is a URL object with the real password; str() would mask it.
+    url = migrated_db.url.set(drivername="postgresql+asyncpg")
 
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "check"],
