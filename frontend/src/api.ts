@@ -4,6 +4,10 @@ import type {
     GoalUpdate,
     NextSuggestion,
     PreferencesUpdate,
+    Reminder,
+    ReminderCreate,
+    ReminderFilters,
+    ReminderStatus,
     ScheduleBlock,
     ScheduleBlockCreate,
     ScheduleBlockUpdate,
@@ -175,3 +179,33 @@ export const updateGoal = (id: string, data: GoalUpdate): Promise<Goal> =>
 
 export const deleteGoal = (id: string): Promise<void> =>
     request<void>(`/api/goals/${id}`, { method: 'DELETE' }, 'Failed to delete goal');
+
+// --- Reminders -------------------------------------------------------------
+
+export const getReminders = (filters: ReminderFilters = {}): Promise<Reminder[]> => {
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.start) params.set('start', filters.start);
+    if (filters.end) params.set('end', filters.end);
+    const query = params.toString();
+
+    return request<Reminder[]>(
+        `/api/reminders/${query ? `?${query}` : ''}`,
+        {},
+        "Couldn't load reminders.",
+    );
+};
+
+export const createReminder = (data: ReminderCreate): Promise<Reminder> =>
+    request<Reminder>(
+        '/api/reminders/',
+        jsonBody('POST', data),
+        "Couldn't create reminder. Please try again.",
+    );
+
+export const updateReminderStatus = (id: string, status: ReminderStatus): Promise<Reminder> =>
+    request<Reminder>(
+        `/api/reminders/${id}/status`,
+        jsonBody('PUT', { status }),
+        "Couldn't update reminder.",
+    );

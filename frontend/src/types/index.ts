@@ -115,3 +115,38 @@ export interface NextSuggestion {
     /** Present when there's nothing to suggest, explaining why. */
     reason: string | null;
 }
+
+// --- Reminders -------------------------------------------------------------
+
+export type ReminderStatus = 'pending' | 'done' | 'later' | 'skipped';
+export type RecurrenceRule = 'none' | 'daily' | 'weekdays';
+
+export interface Reminder {
+    id: string;
+    user_id: string;
+    /** Null for a one-off, or once the goal it came from was deleted. */
+    goal_id: string | null;
+    /** Snapshot of the goal name at creation — never re-read from the goal. */
+    label: string;
+    scheduled_time: string;
+    status: ReminderStatus;
+    is_recurring: boolean;
+    recurrence_rule: RecurrenceRule;
+}
+
+/**
+ * Exactly one of `goal_id` / `label` — the server rejects both or neither, and
+ * derives `is_recurring` from the rule.
+ */
+export interface ReminderCreate {
+    goal_id?: string | null;
+    label?: string | null;
+    scheduled_time: string;
+    recurrence_rule?: RecurrenceRule;
+}
+
+export interface ReminderFilters {
+    status?: ReminderStatus;
+    start?: string;
+    end?: string;
+}

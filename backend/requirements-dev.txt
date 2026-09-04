@@ -4,3 +4,8 @@ pytest>=8.2
 pytest-asyncio>=0.23
 pytest-cov>=5.0
 ruff==0.16.6
+
+# Windows has no system IANA database, so zoneinfo (and every timezone-aware
+# test) fails there without this. Linux CI and the python:3.11-slim image both
+# ship one, which is why it is dev-only.
+tzdata>=2024.1

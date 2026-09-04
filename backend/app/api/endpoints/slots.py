@@ -5,7 +5,7 @@ app.services, and shape the result. All the logic lives in the services layer so
 the scheduler container can reuse it without going through HTTP.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, Query
@@ -45,7 +45,9 @@ def user_now(user: User) -> datetime:
     try:
         tz = ZoneInfo(user.timezone)
     except (ZoneInfoNotFoundError, ValueError):
-        tz = ZoneInfo("UTC")
+        # Not ZoneInfo("UTC"): on a host with no IANA database that would raise
+        # the very error being handled. timezone.utc needs no database.
+        tz = UTC
     return datetime.now(tz).replace(tzinfo=None)
 
 

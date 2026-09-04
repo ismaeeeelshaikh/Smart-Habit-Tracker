@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api.endpoints import auth, goals, schedule, slots, users
+from app.api.endpoints import auth, goals, reminders, schedule, slots, users
 from app.core.config import settings
 from app.core.rate_limit import limiter
 
@@ -25,6 +25,7 @@ app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(schedule.router, prefix="/api/schedule", tags=["schedule"])
 app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 app.include_router(slots.router, prefix="/api/slots", tags=["slots"])
+app.include_router(reminders.router, prefix="/api/reminders", tags=["reminders"])
 
 
 @app.get("/health")
