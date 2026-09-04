@@ -5,7 +5,11 @@ migration — `alembic upgrade head` on a clean database has to leave nothing fo
 autogenerate to detect.
 """
 
+import os
+import subprocess
+import sys
 import uuid
+from pathlib import Path
 
 import pytest
 from alembic.autogenerate import compare_metadata
@@ -17,6 +21,8 @@ from sqlalchemy.engine import make_url
 from alembic import command
 from app.core.config import settings
 from app.db.base import Base
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 EXPECTED_TABLES = {
     "users",
@@ -85,3 +91,36 @@ def test_migrated_schema_matches_the_models(migrated_db):
         and d[0] in {"add_table", "remove_table", "add_column", "remove_column", "modify_type"}
     ]
     assert structural == [], f"schema drift between models and migrations: {structural}"
+
+
+def test_env_py_registers_the_models(migrated_db):
+    """`alembic check` must pass in a *fresh process*.
+
+    The test above imports Base.metadata itself, so it stays green even when
+    alembic's own env.py registers no models — a silent failure mode where
+    autogenerate then proposes dropping every table. Running the real CLI in a
+    subprocess is the only way to see what a developer would see.
+    """
+    url = make_url(str(migrated_db.url)).set(drivername="postgresql+asyncpg")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "check"],
+        cwd=BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "DATABASE_URL": url.render_as_string(hide_password=False),
+            "JWT_SECRET": "test_secret_key_for_tests_only",
+        },
+    )
+
+    output = result.stdout + result.stderr
+    assert "remove_table" not in output, (
+        "alembic autogenerate wants to drop tables that exist, which means "
+        "env.py is not importing app.db.models and Base.metadata is empty.\n\n"
+        + output[-2000:]
+    )
+    assert result.returncode == 0, (
+        f"alembic check reported pending schema changes:\n\n{output[-2000:]}"
+    )

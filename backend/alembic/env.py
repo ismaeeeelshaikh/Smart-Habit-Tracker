@@ -12,6 +12,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Importing models is what registers every table on Base.metadata. `models`
+# looks unused — do not remove it, or autogenerate silently sees an empty schema
+# and proposes dropping every table. tests/test_migrations.py guards this.
+from app.db import models  # noqa: F401
 from app.db.base import Base
 
 # this is the Alembic Config object, which provides
