@@ -5,7 +5,7 @@ import type { Priority, GoalCreate, GoalUpdate } from '../../types';
 
 interface GoalFormProps {
     initialData?: GoalUpdate & { id?: string };
-    onSubmit: (data: GoalCreate | GoalUpdate) => Promise<void>;
+    onSubmit: (data: GoalCreate | GoalUpdate) => Promise<unknown>;
     onCancel: () => void;
 }
 

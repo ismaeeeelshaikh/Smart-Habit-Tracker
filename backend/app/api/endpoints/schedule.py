@@ -1,17 +1,18 @@
-from typing import List
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.api import deps
 from app.db.database import get_db
-from app.db.models import ScheduleBlock as ScheduleBlockModel, User
+from app.db.models import ScheduleBlock as ScheduleBlockModel
+from app.db.models import User
 from app.schemas.schedule import ScheduleBlock, ScheduleBlockCreate, ScheduleBlockUpdate
 
 router = APIRouter()
 
-@router.get("/", response_model=List[ScheduleBlock])
+@router.get("/", response_model=list[ScheduleBlock])
 async def get_schedule_blocks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_user),
@@ -75,7 +76,7 @@ async def update_schedule_block(
         )
     )
     db_block = result.scalars().first()
-    
+
     if not db_block:
         raise HTTPException(status_code=404, detail="Schedule block not found")
 
@@ -120,7 +121,7 @@ async def delete_schedule_block(
         )
     )
     db_block = result.scalars().first()
-    
+
     if not db_block:
         raise HTTPException(status_code=404, detail="Schedule block not found")
 

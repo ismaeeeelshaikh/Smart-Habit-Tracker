@@ -1,0 +1,24 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "B008",   # FastAPI's Depends() in defaults is the documented idiom.
+    "UP042",  # `str, Enum` is deliberate: values must serialise/compare as strings.
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic's generated env.py imports models after configuring sys.path.
+"alembic/env.py" = ["E402"]
+# Declarative table definitions read better on one line than wrapped.
+"app/db/models.py" = ["E501"]
+"scripts/seed.py" = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning"]

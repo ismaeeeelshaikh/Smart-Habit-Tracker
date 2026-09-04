@@ -7,9 +7,9 @@ import type { Goal, GoalCreate, GoalUpdate } from '../../types';
 
 interface GoalListProps {
     goals: Goal[];
-    onAddGoal: (data: GoalCreate) => Promise<void>;
-    onEditGoal: (id: string, data: GoalUpdate) => Promise<void>;
-    onDeleteGoal: (id: string) => Promise<void>;
+    onAddGoal: (data: GoalCreate) => Promise<unknown>;
+    onEditGoal: (id: string, data: GoalUpdate) => Promise<unknown>;
+    onDeleteGoal: (id: string) => Promise<unknown>;
 }
 
 export const GoalList: React.FC<GoalListProps> = ({ goals, onAddGoal, onEditGoal, onDeleteGoal }) => {

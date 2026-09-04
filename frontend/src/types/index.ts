@@ -1,6 +1,18 @@
 export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 export type Priority = 'high' | 'medium' | 'low';
 
+export interface User {
+    id: string;
+    email: string;
+    timezone: string;
+    is_active: boolean;
+    created_at: string;
+    /** Null until the user finishes onboarding — drives the setup redirect. */
+    onboarding_completed_at: string | null;
+    telegram_username: string | null;
+    telegram_linked: boolean;
+}
+
 export interface ScheduleBlock {
     id: string;
     user_id: string;

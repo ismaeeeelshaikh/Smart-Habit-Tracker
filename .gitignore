@@ -114,3 +114,9 @@ DESIGN.md
 .windsurf/
 skills-lock.json
 docs
+
+# Local tooling
+.venv/
+.pytest_cache/
+coverage.xml
+.coverage

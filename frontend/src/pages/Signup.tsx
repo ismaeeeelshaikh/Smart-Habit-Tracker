@@ -9,6 +9,7 @@ export const Signup: React.FC = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [timezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
     const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Field errors
     const [emailError, setEmailError] = useState('');
@@ -54,7 +55,7 @@ export const Signup: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        
+
         const isEmailValid = validateEmail();
         const isPasswordValid = validatePassword();
         const isConfirmPasswordValid = validateConfirmPassword();
@@ -63,6 +64,7 @@ export const Signup: React.FC = () => {
             return;
         }
 
+        setIsSubmitting(true);
         try {
             const res = await fetch('/auth/signup', {
                 method: 'POST',
@@ -71,15 +73,23 @@ export const Signup: React.FC = () => {
             });
 
             if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.detail || 'Signup failed');
+                const data = await res.json().catch(() => ({}));
+                if (res.status === 409) {
+                    setEmailError('An account with this email already exists.');
+                    return;
+                }
+                const detail = Array.isArray(data.detail) ? data.detail[0]?.msg : data.detail;
+                throw new Error(detail || 'Signup failed');
             }
 
             const data = await res.json();
-            login(data.access_token);
+            await login(data.access_token);
+            // New accounts always start the setup wizard.
             navigate('/onboarding/schedule');
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Signup failed');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -143,8 +153,8 @@ export const Signup: React.FC = () => {
                         </div>
                     </div>
 
-                    <Button type="submit" className="w-full">
-                        Sign up
+                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                        {isSubmitting ? 'Creating account…' : 'Sign up'}
                     </Button>
                 </form>
                 

@@ -1,17 +1,18 @@
-from typing import List
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.api import deps
 from app.db.database import get_db
-from app.db.models import Goal as GoalModel, User
+from app.db.models import Goal as GoalModel
+from app.db.models import User
 from app.schemas.goal import Goal, GoalCreate, GoalUpdate
 
 router = APIRouter()
 
-@router.get("/", response_model=List[Goal])
+@router.get("/", response_model=list[Goal])
 async def get_goals(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_user),
@@ -65,7 +66,7 @@ async def update_goal(
         )
     )
     db_goal = result.scalars().first()
-    
+
     if not db_goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
@@ -96,7 +97,7 @@ async def delete_goal(
         )
     )
     db_goal = result.scalars().first()
-    
+
     if not db_goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 

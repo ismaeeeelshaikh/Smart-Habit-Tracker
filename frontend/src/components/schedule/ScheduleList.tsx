@@ -16,9 +16,9 @@ const DAYS: { id: DayOfWeek; label: string }[] = [
 
 interface ScheduleListProps {
     blocks: ScheduleBlock[];
-    onAddBlock: (day: DayOfWeek, data: ScheduleBlockCreate) => Promise<void>;
-    onEditBlock: (id: string, data: ScheduleBlockUpdate) => Promise<void>;
-    onDeleteBlock: (id: string) => Promise<void>;
+    onAddBlock: (day: DayOfWeek, data: ScheduleBlockCreate) => Promise<unknown>;
+    onEditBlock: (id: string, data: ScheduleBlockUpdate) => Promise<unknown>;
+    onDeleteBlock: (id: string) => Promise<unknown>;
 }
 
 export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, onEditBlock, onDeleteBlock }) => {

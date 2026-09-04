@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getScheduleBlocks, getGoals } from '../api';
 import { Button } from '../components/ui/Button';
 
 export const Login: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        
+        setIsSubmitting(true);
+
         try {
             const res = await fetch('/auth/login', {
                 method: 'POST',
@@ -23,30 +24,17 @@ export const Login: React.FC = () => {
             });
 
             if (!res.ok) {
-                const data = await res.json();
+                const data = await res.json().catch(() => ({}));
                 throw new Error(data.detail || 'Login failed');
             }
 
             const data = await res.json();
-            login(data.access_token);
-            
-            // Heuristic check for onboarding status
-            try {
-                const [blocks, goals] = await Promise.all([
-                    getScheduleBlocks(),
-                    getGoals()
-                ]);
-                if (blocks.length === 0 && goals.length === 0) {
-                    navigate('/onboarding/schedule');
-                } else {
-                    navigate('/dashboard');
-                }
-            } catch (err) {
-                // Fallback on error
-                navigate('/dashboard');
-            }
-        } catch (err: any) {
-            setError(err.message);
+            const user = await login(data.access_token);
+            navigate(user?.onboarding_completed_at ? '/dashboard' : '/onboarding/schedule');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Login failed');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -92,8 +80,8 @@ export const Login: React.FC = () => {
                         </div>
                     </div>
 
-                    <Button type="submit" className="w-full">
-                        Sign in
+                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                        {isSubmitting ? 'Signing in…' : 'Sign in'}
                     </Button>
                 </form>
                 

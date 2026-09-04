@@ -1,13 +1,26 @@
-import uuid
 import enum
-from datetime import datetime, time
+import uuid
+
 from sqlalchemy import (
-    Column, String, Boolean, Integer, ForeignKey, DateTime, Time, Enum, CheckConstraint, Index, func, text
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Time,
+    func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 from .base import Base
+
 
 class DayOfWeekEnum(str, enum.Enum):
     mon = 'mon'
@@ -60,6 +73,14 @@ class User(Base):
     completion_logs = relationship("CompletionLog", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     telegram_link_codes = relationship("TelegramLinkCode", back_populates="user", cascade="all, delete-orphan")
+
+    @hybrid_property
+    def telegram_linked(self) -> bool:
+        return self.telegram_chat_id is not None
+
+    @telegram_linked.expression
+    def telegram_linked(cls):
+        return cls.telegram_chat_id.isnot(None)
 
     __table_args__ = (
         Index('idx_users_email', func.lower(email), unique=True),

@@ -6,7 +6,7 @@ import type { DayOfWeek, ScheduleBlockCreate, ScheduleBlockUpdate } from '../../
 interface ScheduleFormProps {
     dayOfWeek: DayOfWeek;
     initialData?: ScheduleBlockUpdate & { id?: string };
-    onSubmit: (data: ScheduleBlockCreate | ScheduleBlockUpdate) => Promise<void>;
+    onSubmit: (data: ScheduleBlockCreate | ScheduleBlockUpdate) => Promise<unknown>;
     onCancel: () => void;
 }
 
