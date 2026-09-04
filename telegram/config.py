@@ -13,6 +13,8 @@ class TelegramSettings(BaseSettings):
 
     BACKEND_API_URL: str = "http://backend:8000"
     INTERNAL_API_KEY: str = "dev_internal_key_only"
+    # Used in the messages that point an unlinked user back to the web app.
+    WEB_APP_URL: str = "http://localhost:5173"
 
     LOG_LEVEL: str = "INFO"
 

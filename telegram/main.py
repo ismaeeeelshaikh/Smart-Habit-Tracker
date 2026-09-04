@@ -31,13 +31,61 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
+def register_handlers(application) -> None:
+    """Wire every command, the inline buttons, and the /add conversation."""
+    from telegram.ext import (
+        CallbackQueryHandler,
+        CommandHandler,
+        ConversationHandler,
+        MessageHandler,
+        filters,
+    )
+
+    import handlers as h
+
+    # /add is a conversation, so it must be registered before the plain-text
+    # catch-all or its answers would be swallowed as stray messages.
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[CommandHandler("add", h.add_start)],
+            states={
+                h.ASK_LABEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, h.add_label)],
+                h.ASK_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, h.add_date)],
+                h.ASK_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, h.add_time)],
+                h.ASK_RECURRENCE: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, h.add_recurrence)
+                ],
+            },
+            fallbacks=[CommandHandler("cancel", h.add_cancel)],
+        )
+    )
+
+    application.add_handler(CommandHandler("start", h.start))
+    application.add_handler(CommandHandler("help", h.help_command))
+    application.add_handler(CommandHandler("today", h.today))
+    application.add_handler(CommandHandler("schedule", h.schedule))
+    application.add_handler(CommandHandler("free", h.free))
+    application.add_handler(CommandHandler("next", h.next_task))
+    application.add_handler(CommandHandler("stats", h.stats))
+    application.add_handler(CommandHandler("done", h.done_or_skip))
+    application.add_handler(CommandHandler("skip", h.done_or_skip))
+
+    application.add_handler(CallbackQueryHandler(h.on_action_button, pattern=r"^status:"))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, h.on_plain_text)
+    )
+
+
 async def run_bot() -> None:
     from telegram.ext import Application
 
-    application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+    from api_client import BackendClient
 
-    # Phase 6: register /today /schedule /free /next /done /skip /add /stats /help
-    # plus the inline-keyboard callback handler here.
+    application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+    # Handlers reach the backend through this; one client, one connection pool.
+    application.bot_data["backend"] = BackendClient()
+
+    register_handlers(application)
 
     if settings.webhook_mode:
         log.info("starting in webhook mode at %s", settings.TELEGRAM_WEBHOOK_URL)

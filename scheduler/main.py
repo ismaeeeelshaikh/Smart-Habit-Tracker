@@ -16,7 +16,9 @@ from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from backend_client import BackendClient, TelegramSender
 from config import settings
+from dispatch import dispatch_once
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -25,9 +27,15 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-async def heartbeat() -> None:
-    """Placeholder job proving the scheduler loop is alive and jobs execute."""
-    log.info("scheduler heartbeat")
+async def run_dispatch() -> None:
+    """One dispatch pass. Clients are per-run so a dead connection can't persist."""
+    backend = BackendClient()
+    sender = TelegramSender()
+    try:
+        await dispatch_once(backend, sender)
+    finally:
+        await backend.aclose()
+        await sender.aclose()
 
 
 def build_scheduler() -> AsyncIOScheduler:
@@ -44,10 +52,10 @@ def build_scheduler() -> AsyncIOScheduler:
         timezone="UTC",
     )
     scheduler.add_job(
-        heartbeat,
+        run_dispatch,
         trigger="interval",
         seconds=settings.DISPATCH_INTERVAL_SECONDS,
-        id="heartbeat",
+        id="dispatch",
         replace_existing=True,
     )
     return scheduler

@@ -1,0 +1,17 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# main.py drops the repo root from sys.path before importing, so its own
+# imports must come after that.
+"main.py" = ["E402"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+# The bot modules import each other flat, as they do at /app in the container.
+pythonpath = [".", "tests"]

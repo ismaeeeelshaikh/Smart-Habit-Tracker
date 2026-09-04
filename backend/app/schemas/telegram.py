@@ -29,3 +29,23 @@ class ConsumeLinkCodeOut(BaseModel):
     linked: bool
     # Why it failed, in words the bot can pass straight through to the user.
     detail: str | None = None
+
+
+class ChatTokenIn(BaseModel):
+    chat_id: str
+
+
+class ChatTokenOut(BaseModel):
+    """Lets the bot call the ordinary /api routes as the user it's talking to."""
+
+    access_token: str
+    expires_in: int
+    # Saves the bot a round trip when formatting times in the user's own clock.
+    timezone: str
+
+
+class LinkedChatOut(BaseModel):
+    """One dispatch target for the scheduler."""
+
+    chat_id: str
+    timezone: str

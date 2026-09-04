@@ -1,4 +1,3 @@
-from typing import Optional
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -13,10 +12,13 @@ class SchedulerSettings(BaseSettings):
 
     # APScheduler's SQLAlchemyJobStore is synchronous, so it needs a psycopg2 URL
     # rather than the asyncpg one the backend uses.
-    JOBSTORE_URL: Optional[str] = None
+    JOBSTORE_URL: str | None = None
 
     BACKEND_API_URL: str = "http://backend:8000"
     INTERNAL_API_KEY: str = "dev_internal_key_only"
+    # The Bot API is stateless HTTP, so the dispatch job sends reminders itself
+    # rather than routing through the bot container.
+    TELEGRAM_BOT_TOKEN: str = ""
 
     # How often the dispatch loop scans for upcoming free slots.
     DISPATCH_INTERVAL_SECONDS: int = 300

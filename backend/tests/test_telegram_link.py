@@ -236,3 +236,53 @@ async def test_linking_is_visible_on_the_user_record(auth_client, db_session):
 
     result = await db_session.execute(select(User).where(User.telegram_chat_id == "31337"))
     assert result.scalars().first() is not None
+
+
+class TestChatToken:
+    """The bot swaps a linked chat id for a user token, then uses the normal API."""
+
+    @pytest_asyncio.fixture
+    async def linked_chat(self, auth_client):
+        code = (await generate_code(auth_client))["code"]
+        await consume(auth_client, code, chat_id="8080", username="ismaeel")
+        return "8080"
+
+    async def test_a_linked_chat_gets_a_working_token(self, auth_client, linked_chat):
+        res = await auth_client.post(
+            "/internal/telegram/token",
+            json={"chat_id": linked_chat},
+            headers=INTERNAL_HEADERS,
+        )
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["expires_in"] > 0
+
+        # The whole point: the token works on the ordinary, ownership-scoped API.
+        me = await auth_client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {body['access_token']}"}
+        )
+        assert me.status_code == 200
+        assert me.json()["telegram_username"] == "ismaeel"
+
+    async def test_the_token_is_short_lived(self, auth_client, linked_chat):
+        res = await auth_client.post(
+            "/internal/telegram/token",
+            json={"chat_id": linked_chat},
+            headers=INTERNAL_HEADERS,
+        )
+        # Minutes, not the usual quarter hour — the bot re-mints freely.
+        assert res.json()["expires_in"] <= 5 * 60
+
+    async def test_an_unlinked_chat_gets_no_token(self, auth_client):
+        res = await auth_client.post(
+            "/internal/telegram/token",
+            json={"chat_id": "not-linked"},
+            headers=INTERNAL_HEADERS,
+        )
+        assert res.status_code == 404
+
+    async def test_requires_the_internal_key(self, auth_client, linked_chat):
+        res = await auth_client.post(
+            "/internal/telegram/token", json={"chat_id": linked_chat}
+        )
+        assert res.status_code == 401
