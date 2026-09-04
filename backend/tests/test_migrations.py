@@ -12,13 +12,13 @@ import uuid
 from pathlib import Path
 
 import pytest
+from alembic.autogenerate import compare_metadata
+from alembic.config import Config
+from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 from alembic import command
-from alembic.autogenerate import compare_metadata
-from alembic.config import Config
-from alembic.migration import MigrationContext
 from app.core.config import settings
 from app.db.base import Base
 
