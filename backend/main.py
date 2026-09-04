@@ -3,7 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api.endpoints import auth, goals, reminders, schedule, slots, stats, users
+from app.api.endpoints import (
+    auth,
+    goals,
+    internal,
+    reminders,
+    schedule,
+    slots,
+    stats,
+    telegram,
+    users,
+)
 from app.core.config import settings
 from app.core.rate_limit import limiter
 
@@ -27,6 +37,9 @@ app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 app.include_router(slots.router, prefix="/api/slots", tags=["slots"])
 app.include_router(reminders.router, prefix="/api/reminders", tags=["reminders"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
+app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])
+# Service-to-service, shared-key authenticated — not part of the public surface.
+app.include_router(internal.router, prefix="/internal", tags=["internal"])
 
 
 @app.get("/health")

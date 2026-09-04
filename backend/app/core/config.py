@@ -39,7 +39,8 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_USERNAME: str = ""
     TELEGRAM_WEBHOOK_SECRET: str = ""
     TELEGRAM_WEBHOOK_URL: str = ""
-    TELEGRAM_LINK_CODE_TTL_MINUTES: int = 15
+    # 10 minutes per App Flow Document Section 4.3 ("Code expired (>10 min unused)").
+    TELEGRAM_LINK_CODE_TTL_MINUTES: int = 10
 
     model_config = SettingsConfigDict(
         env_file=str(REPO_ROOT / ".env"),

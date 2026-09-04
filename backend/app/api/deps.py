@@ -1,6 +1,7 @@
+import secrets
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,3 +53,19 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
     return user
+
+
+async def require_internal_key(x_internal_key: str | None = Header(None)) -> None:
+    """Gate for /internal/* — the telegram and scheduler containers.
+
+    Those processes act for a user identified by Telegram chat id rather than by
+    a JWT, so they authenticate as *services* with a shared secret. Compared in
+    constant time, since a timing side channel on a static secret is exactly the
+    kind of thing that is cheap to avoid and awkward to discover later.
+    """
+    if not x_internal_key or not secrets.compare_digest(
+        x_internal_key, settings.INTERNAL_API_KEY
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal key"
+        )

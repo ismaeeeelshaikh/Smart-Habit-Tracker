@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { TelegramConnect } from '../components/telegram/TelegramConnect';
 import { useAuth } from '../contexts/AuthContext';
-import { ApiError, changePassword, updatePreferences } from '../api';
+import { ApiError, changePassword, disconnectTelegram, updatePreferences } from '../api';
 
 const inputClass =
     'block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] ' +
@@ -192,6 +193,76 @@ const ActiveHoursSection: React.FC = () => {
     );
 };
 
+const TelegramSection = () => {
+    const { user, refreshUser } = useAuth();
+    const [isDisconnecting, setIsDisconnecting] = useState(false);
+    const [isConfirming, setIsConfirming] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleDisconnect = async () => {
+        setError(null);
+        setIsDisconnecting(true);
+        try {
+            await disconnectTelegram();
+            await refreshUser();
+            setIsConfirming(false);
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Couldn't disconnect Telegram. Please try again.",
+            );
+        } finally {
+            setIsDisconnecting(false);
+        }
+    };
+
+    if (!user?.telegram_linked) {
+        return (
+            <>
+                <div className="bg-[var(--color-warning-bg)] p-4 rounded-[8px] text-[15px] font-inter text-[var(--color-ink)]">
+                    You haven't connected Telegram yet. Reminders won't be delivered.
+                </div>
+                <TelegramConnect onConnected={refreshUser} />
+            </>
+        );
+    }
+
+    return (
+        <div className="space-y-3">
+            <p className="text-[15px] font-inter">
+                Connected{user.telegram_username ? ` as @${user.telegram_username}` : ''}.
+            </p>
+
+            {isConfirming ? (
+                <div className="space-y-2">
+                    <p className="text-[13px] text-[var(--color-ink-muted)]">
+                        Disconnect Telegram? Reminders stop being delivered. Your history stays.
+                    </p>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="secondary"
+                            onClick={() => setIsConfirming(false)}
+                            disabled={isDisconnecting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button onClick={handleDisconnect} disabled={isDisconnecting}>
+                            {isDisconnecting ? 'Disconnecting…' : 'Yes, disconnect'}
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <Button variant="secondary" onClick={() => setIsConfirming(true)}>
+                    Disconnect
+                </Button>
+            )}
+
+            {error && <p className="text-[13px] text-[var(--color-error)]">{error}</p>}
+        </div>
+    );
+};
+
 export const Settings = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -231,17 +302,7 @@ export const Settings = () => {
 
             <Card className="p-6 space-y-4">
                 <h2 className="font-display font-semibold text-[18px]">Telegram</h2>
-                {user?.telegram_linked ? (
-                    <div className="text-[15px] font-inter">
-                        Connected
-                        {user.telegram_username ? ` as @${user.telegram_username}` : ''}.
-                    </div>
-                ) : (
-                    <div className="bg-[var(--color-warning-bg)] p-4 rounded-[8px] text-[15px] font-inter text-[var(--color-ink)]">
-                        You haven't connected Telegram yet. Reminders won't be delivered.
-                    </div>
-                )}
-                {/* Link/disconnect flow lands in Phase 6 alongside the bot. */}
+                <TelegramSection />
             </Card>
 
             <Card className="p-6 space-y-4">

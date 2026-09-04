@@ -151,6 +151,19 @@ export interface ReminderFilters {
     end?: string;
 }
 
+// --- Telegram --------------------------------------------------------------
+
+export interface LinkCode {
+    code: string;
+    expires_at: string;
+    bot_username: string;
+}
+
+export interface LinkStatus {
+    linked: boolean;
+    telegram_username: string | null;
+}
+
 // --- Stats -----------------------------------------------------------------
 
 export interface CompletionTally {

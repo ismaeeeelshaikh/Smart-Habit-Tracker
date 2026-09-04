@@ -2,6 +2,8 @@ import type {
     Goal,
     GoalCreate,
     GoalUpdate,
+    LinkCode,
+    LinkStatus,
     NextSuggestion,
     PreferencesUpdate,
     Reminder,
@@ -209,6 +211,25 @@ export const updateReminderStatus = (id: string, status: ReminderStatus): Promis
         `/api/reminders/${id}/status`,
         jsonBody('PUT', { status }),
         "Couldn't update reminder.",
+    );
+
+// --- Telegram --------------------------------------------------------------
+
+export const createLinkCode = (): Promise<LinkCode> =>
+    request<LinkCode>(
+        '/api/telegram/link',
+        { method: 'POST' },
+        "Couldn't generate a code. Please try again.",
+    );
+
+export const getLinkStatus = (): Promise<LinkStatus> =>
+    request<LinkStatus>('/api/telegram/link/status', {}, "Couldn't check connection status.");
+
+export const disconnectTelegram = (): Promise<LinkStatus> =>
+    request<LinkStatus>(
+        '/api/telegram/link',
+        { method: 'DELETE' },
+        "Couldn't disconnect Telegram. Please try again.",
     );
 
 // --- Stats -----------------------------------------------------------------
