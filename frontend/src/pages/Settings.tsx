@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
-import { ApiError, changePassword } from '../api';
+import { ApiError, changePassword, updatePreferences } from '../api';
 
 const inputClass =
     'block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] ' +
@@ -108,6 +108,90 @@ const PasswordSection: React.FC = () => {
     );
 };
 
+/** Bounds free-slot detection: gaps outside these hours are never suggested. */
+const ActiveHoursSection: React.FC = () => {
+    const { user, refreshUser } = useAuth();
+    const [start, setStart] = useState((user?.day_start_time ?? '08:00:00').slice(0, 5));
+    const [end, setEnd] = useState((user?.day_end_time ?? '22:00:00').slice(0, 5));
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+
+        if (start >= end) {
+            setError('End time must be after start time.');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await updatePreferences({
+                day_start_time: `${start}:00`,
+                day_end_time: `${end}:00`,
+            });
+            await refreshUser();
+            setSuccess('Active hours updated.');
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : 'Could not save. Please try again.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <form className="space-y-4" onSubmit={handleSubmit}>
+            <div>
+                <h3 className="font-inter font-medium text-[15px]">Active hours</h3>
+                <p className="text-[13px] text-[var(--color-ink-muted)] mt-1">
+                    We only suggest habits inside these hours, so a gap at 3am never shows up.
+                </p>
+            </div>
+
+            {error && <p className="text-[13px] text-[var(--color-error)]">{error}</p>}
+            {success && (
+                <p className="text-[13px] text-[var(--color-priority-low)]" role="status">
+                    {success}
+                </p>
+            )}
+
+            <div className="flex gap-4">
+                <div className="flex-1">
+                    <label className="block text-[13px] font-medium mb-1" htmlFor="day-start">
+                        From
+                    </label>
+                    <input
+                        id="day-start"
+                        type="time"
+                        value={start}
+                        onChange={(e) => setStart(e.target.value)}
+                        className={inputClass}
+                    />
+                </div>
+                <div className="flex-1">
+                    <label className="block text-[13px] font-medium mb-1" htmlFor="day-end">
+                        To
+                    </label>
+                    <input
+                        id="day-end"
+                        type="time"
+                        value={end}
+                        onChange={(e) => setEnd(e.target.value)}
+                        className={inputClass}
+                    />
+                </div>
+            </div>
+
+            <Button type="submit" disabled={isSaving}>
+                {isSaving ? 'Saving…' : 'Save active hours'}
+            </Button>
+        </form>
+    );
+};
+
 export const Settings = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -134,6 +218,10 @@ export const Settings = () => {
                         <span className="text-[var(--color-ink-muted)]">Timezone: </span>
                         <span>{user?.timezone ?? '—'}</span>
                     </div>
+                </div>
+
+                <div className="border-t border-[var(--color-border)] pt-6">
+                    <ActiveHoursSection />
                 </div>
 
                 <div className="border-t border-[var(--color-border)] pt-6">

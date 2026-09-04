@@ -11,7 +11,14 @@ from sqlalchemy.future import select  # noqa: E402
 
 from app.core.security import get_password_hash  # noqa: E402
 from app.db.database import AsyncSessionLocal  # noqa: E402
-from app.db.models import DayOfWeekEnum, Goal, PriorityEnum, ScheduleBlock, User  # noqa: E402
+from app.db.models import (  # noqa: E402
+    DayOfWeekEnum,
+    FlexibleAvailabilityEnum,
+    Goal,
+    PriorityEnum,
+    ScheduleBlock,
+    User,
+)
 
 TEST_EMAIL = "test@example.com"
 TEST_PASSWORD = "password123"
@@ -41,13 +48,18 @@ async def seed():
                 ScheduleBlock(user_id=user.id, day_of_week=DayOfWeekEnum.mon, label="Work",
                               start_time=time(9, 0), end_time=time(17, 0), is_flexible_block=False),
                 ScheduleBlock(user_id=user.id, day_of_week=DayOfWeekEnum.mon, label="Evening Free Time",
-                              is_flexible_block=True),
+                              is_flexible_block=True,
+                              flexible_availability=FlexibleAvailabilityEnum.free),
                 ScheduleBlock(user_id=user.id, day_of_week=DayOfWeekEnum.tue, label="College",
                               start_time=time(9, 0), end_time=time(15, 30), is_flexible_block=False),
                 ScheduleBlock(user_id=user.id, day_of_week=DayOfWeekEnum.tue, label="Gym",
                               start_time=time(18, 0), end_time=time(19, 0), is_flexible_block=False),
                 ScheduleBlock(user_id=user.id, day_of_week=DayOfWeekEnum.sat, label="Mostly Free",
-                              is_flexible_block=True),
+                              is_flexible_block=True,
+                              flexible_availability=FlexibleAvailabilityEnum.free),
+                ScheduleBlock(user_id=user.id, day_of_week=DayOfWeekEnum.sun, label="Family",
+                              is_flexible_block=True,
+                              flexible_availability=FlexibleAvailabilityEnum.busy),
             ]
         )
 

@@ -1,5 +1,6 @@
 import enum
 import uuid
+from datetime import time
 
 from sqlalchemy import (
     Boolean,
@@ -52,6 +53,15 @@ class CompletionActionEnum(str, enum.Enum):
     later = 'later'
     skipped = 'skipped'
 
+class FlexibleAvailabilityEnum(str, enum.Enum):
+    """What a no-fixed-time block means to the slot engine.
+
+    The PRD uses one 'flexible' concept for two opposite things — 'Saturday:
+    Mostly Free' and 'Sunday: Family' — so the user says which it is.
+    """
+    free = 'free'   # a soft label; leaves the day open for suggestions
+    busy = 'busy'   # loosely committed; blocks the whole day
+
 class User(Base):
     __tablename__ = 'users'
 
@@ -63,6 +73,9 @@ class User(Base):
     telegram_username = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     onboarding_completed_at = Column(DateTime(timezone=True), nullable=True)
+    # Bounds the usable day: gaps outside these hours are never offered as slots.
+    day_start_time = Column(Time, nullable=False, server_default=text("'08:00'"), default=time(8, 0))
+    day_end_time = Column(Time, nullable=False, server_default=text("'22:00'"), default=time(22, 0))
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
 
@@ -83,6 +96,7 @@ class User(Base):
         return cls.telegram_chat_id.isnot(None)
 
     __table_args__ = (
+        CheckConstraint("day_end_time > day_start_time", name='chk_users_day_window_ordered'),
         Index('idx_users_email', func.lower(email), unique=True),
         Index('idx_users_telegram_chat_id', telegram_chat_id, unique=True, postgresql_where=text("telegram_chat_id IS NOT NULL")),
     )
@@ -97,6 +111,10 @@ class ScheduleBlock(Base):
     start_time = Column(Time, nullable=True)
     end_time = Column(Time, nullable=True)
     is_flexible_block = Column(Boolean, nullable=False, default=False)
+    # Only meaningful for flexible blocks; NULL for fixed ones.
+    flexible_availability = Column(
+        Enum(FlexibleAvailabilityEnum, name='flexible_availability_enum'), nullable=True
+    )
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
 
@@ -107,6 +125,11 @@ class ScheduleBlock(Base):
             "(is_flexible_block = true AND start_time IS NULL AND end_time IS NULL) OR "
             "(is_flexible_block = false AND start_time IS NOT NULL AND end_time IS NOT NULL AND end_time > start_time)",
             name='chk_fixed_block_has_times'
+        ),
+        CheckConstraint(
+            "(is_flexible_block = true AND flexible_availability IS NOT NULL) OR "
+            "(is_flexible_block = false AND flexible_availability IS NULL)",
+            name='chk_flexible_block_has_availability'
         ),
         Index('idx_schedule_blocks_user_day', user_id, day_of_week),
     )

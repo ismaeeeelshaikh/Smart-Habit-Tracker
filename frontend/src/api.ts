@@ -2,10 +2,14 @@ import type {
     Goal,
     GoalCreate,
     GoalUpdate,
+    NextSuggestion,
+    PreferencesUpdate,
     ScheduleBlock,
     ScheduleBlockCreate,
     ScheduleBlockUpdate,
+    TodayFreeSlots,
     User,
+    WeekFreeSlots,
 } from './types';
 
 let accessToken: string | null = null;
@@ -118,6 +122,28 @@ export const changePassword = (current_password: string, new_password: string): 
         jsonBody('POST', { current_password, new_password }),
         'Failed to change password',
     );
+
+export const updatePreferences = (data: PreferencesUpdate): Promise<User> =>
+    request<User>(
+        '/api/users/me/preferences',
+        jsonBody('PATCH', data),
+        'Failed to update preferences',
+    );
+
+// --- Slots -----------------------------------------------------------------
+
+export const getWeekFreeSlots = (): Promise<WeekFreeSlots> =>
+    request<WeekFreeSlots>('/api/slots/free', {}, "Couldn't load your schedule right now.");
+
+export const getTodaysFreeSlots = (): Promise<TodayFreeSlots> =>
+    request<TodayFreeSlots>(
+        '/api/slots/free/today',
+        {},
+        "Couldn't load your schedule right now.",
+    );
+
+export const getNextSuggestion = (): Promise<NextSuggestion> =>
+    request<NextSuggestion>('/api/slots/next', {}, "Couldn't load your schedule right now.");
 
 // --- Schedule --------------------------------------------------------------
 

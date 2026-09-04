@@ -1,6 +1,6 @@
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 
 from pydantic import BaseModel, EmailStr, field_validator
 
@@ -36,6 +36,9 @@ class UserResponse(UserBase):
     is_active: bool
     created_at: datetime
     onboarding_completed_at: datetime | None = None
+    # Bounds free-slot detection; surfaced so Settings can edit it.
+    day_start_time: time
+    day_end_time: time
     telegram_username: str | None = None
     # Backed by User.telegram_linked (a hybrid property on the model).
     telegram_linked: bool = False

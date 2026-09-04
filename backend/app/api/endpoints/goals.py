@@ -12,30 +12,36 @@ from app.schemas.goal import Goal, GoalCreate, GoalUpdate
 
 router = APIRouter()
 
+
+async def _get_owned_goal(db: AsyncSession, goal_id: UUID, user: User) -> GoalModel:
+    """Fetch a goal, 404ing if it is missing *or* owned by someone else."""
+    result = await db.execute(
+        select(GoalModel).where(GoalModel.id == goal_id, GoalModel.user_id == user.id)
+    )
+    goal = result.scalars().first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    return goal
+
+
 @router.get("/", response_model=list[Goal])
 async def get_goals(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
-    """
-    Retrieve goals for the current user.
-    """
-    result = await db.execute(
-        select(GoalModel).where(GoalModel.user_id == current_user.id)
-    )
-    goals = result.scalars().all()
-    return goals
+    """Retrieve goals for the current user."""
+    result = await db.execute(select(GoalModel).where(GoalModel.user_id == current_user.id))
+    return result.scalars().all()
 
-@router.post("/", response_model=Goal)
+
+@router.post("/", response_model=Goal, status_code=status.HTTP_201_CREATED)
 async def create_goal(
     *,
     db: AsyncSession = Depends(get_db),
     goal_in: GoalCreate,
     current_user: User = Depends(deps.get_current_user),
 ):
-    """
-    Create a new goal for the current user.
-    """
+    """Create a new goal for the current user."""
     db_goal = GoalModel(
         user_id=current_user.id,
         name=goal_in.name,
@@ -48,6 +54,7 @@ async def create_goal(
     await db.refresh(db_goal)
     return db_goal
 
+
 @router.put("/{goal_id}", response_model=Goal)
 async def update_goal(
     *,
@@ -56,29 +63,16 @@ async def update_goal(
     goal_in: GoalUpdate,
     current_user: User = Depends(deps.get_current_user),
 ):
-    """
-    Update a goal for the current user.
-    """
-    result = await db.execute(
-        select(GoalModel).where(
-            GoalModel.id == goal_id,
-            GoalModel.user_id == current_user.id
-        )
-    )
-    db_goal = result.scalars().first()
+    """Update a goal for the current user."""
+    db_goal = await _get_owned_goal(db, goal_id, current_user)
 
-    if not db_goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
-
-    update_data = goal_in.model_dump(exclude_unset=True)
-
-    for field, value in update_data.items():
+    for field, value in goal_in.model_dump(exclude_unset=True).items():
         setattr(db_goal, field, value)
 
-    db.add(db_goal)
     await db.commit()
     await db.refresh(db_goal)
     return db_goal
+
 
 @router.delete("/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_goal(
@@ -87,20 +81,12 @@ async def delete_goal(
     goal_id: UUID,
     current_user: User = Depends(deps.get_current_user),
 ):
-    """
-    Delete a goal for the current user.
-    """
-    result = await db.execute(
-        select(GoalModel).where(
-            GoalModel.id == goal_id,
-            GoalModel.user_id == current_user.id
-        )
-    )
-    db_goal = result.scalars().first()
+    """Delete a goal for the current user.
 
-    if not db_goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
-
+    Linked reminders keep their label and have goal_id set to NULL by the FK's
+    ON DELETE SET NULL, so history is preserved rather than vanishing.
+    """
+    db_goal = await _get_owned_goal(db, goal_id, current_user)
     await db.delete(db_goal)
     await db.commit()
     return None

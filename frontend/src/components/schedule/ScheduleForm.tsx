@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import type { DayOfWeek, ScheduleBlockCreate, ScheduleBlockUpdate } from '../../types';
+import type {
+    DayOfWeek,
+    FlexibleAvailability,
+    ScheduleBlockCreate,
+    ScheduleBlockUpdate,
+} from '../../types';
 
 interface ScheduleFormProps {
     dayOfWeek: DayOfWeek;
@@ -15,7 +20,11 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({ dayOfWeek, initialDa
     const [isFlexible, setIsFlexible] = useState(initialData?.is_flexible_block || false);
     const [startTime, setStartTime] = useState(initialData?.start_time || '');
     const [endTime, setEndTime] = useState(initialData?.end_time || '');
-    
+    // A flexible block means one of two opposite things, so the user says which.
+    const [availability, setAvailability] = useState<FlexibleAvailability>(
+        initialData?.flexible_availability || 'busy',
+    );
+
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,6 +56,7 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({ dayOfWeek, initialDa
                 is_flexible_block: isFlexible,
                 start_time: isFlexible ? null : (startTime.length === 5 ? startTime + ':00' : startTime),
                 end_time: isFlexible ? null : (endTime.length === 5 ? endTime + ':00' : endTime),
+                flexible_availability: isFlexible ? availability : null,
             });
         } catch (err: any) {
             setError(err.message || 'Failed to save block');
@@ -76,6 +86,46 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({ dayOfWeek, initialDa
                 />
                 Flexible / no fixed time
             </label>
+
+            {isFlexible && (
+                <fieldset className="flex flex-col gap-2">
+                    <legend className="text-sm font-medium text-foreground mb-1">
+                        On this day I'm
+                    </legend>
+                    <label className="flex items-start gap-2 cursor-pointer select-none text-sm">
+                        <input
+                            type="radio"
+                            name="flexible-availability"
+                            value="busy"
+                            checked={availability === 'busy'}
+                            onChange={() => setAvailability('busy')}
+                            className="mt-1 h-4 w-4"
+                        />
+                        <span>
+                            Committed
+                            <span className="block text-[13px] text-[var(--color-ink-muted)]">
+                                Loosely booked, like family time — we won't suggest anything.
+                            </span>
+                        </span>
+                    </label>
+                    <label className="flex items-start gap-2 cursor-pointer select-none text-sm">
+                        <input
+                            type="radio"
+                            name="flexible-availability"
+                            value="free"
+                            checked={availability === 'free'}
+                            onChange={() => setAvailability('free')}
+                            className="mt-1 h-4 w-4"
+                        />
+                        <span>
+                            Mostly free
+                            <span className="block text-[13px] text-[var(--color-ink-muted)]">
+                                A note to yourself — the whole day stays open for suggestions.
+                            </span>
+                        </span>
+                    </label>
+                </fieldset>
+            )}
 
             {!isFlexible && (
                 <div className="flex gap-4">
