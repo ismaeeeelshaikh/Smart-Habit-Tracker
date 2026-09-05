@@ -6,7 +6,7 @@ endpoint exists on the API now because both channels go through it — the bot's
 inline buttons in Phase 6 call exactly this route.
 """
 
-from datetime import UTC, datetime, tzinfo
+from datetime import UTC, datetime, timedelta, tzinfo
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -22,6 +22,13 @@ from app.db.models import Reminder as ReminderModel
 from app.schemas.reminder import Reminder, ReminderCreate, ReminderStatusUpdate
 
 router = APIRouter()
+
+# How far into the past a one-off may be dated. The rule exists to stop someone
+# setting a reminder for last Tuesday (App Flow Document Section 8), not to
+# reject "now" — the scheduler and /next both legitimately create a reminder for
+# a free slot that is starting this minute, and a strict comparison refuses
+# those a second after the slot begins.
+CREATE_GRACE = timedelta(minutes=5)
 
 
 def _user_tz(user: User) -> tzinfo:
@@ -114,7 +121,7 @@ async def create_reminder(
 
     # A recurring reminder is a pattern, so its anchor may sit in the past; a
     # one-off in the past would simply never fire.
-    if not is_recurring and scheduled_time <= datetime.now(UTC):
+    if not is_recurring and scheduled_time < datetime.now(UTC) - CREATE_GRACE:
         raise HTTPException(
             status_code=422, detail="scheduled_time must be in the future."
         )

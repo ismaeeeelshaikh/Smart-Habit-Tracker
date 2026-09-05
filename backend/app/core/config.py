@@ -1,7 +1,8 @@
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # repo root = backend/app/core/config.py -> backend/app/core -> backend/app -> backend -> <root>
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -28,7 +29,12 @@ class Settings(BaseSettings):
     # --- API --------------------------------------------------------------
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
-    CORS_ORIGINS: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # NoDecode: without it pydantic-settings JSON-decodes list fields straight
+    # from the environment and fails before the validator below ever runs, so a
+    # plain "a,b" value — which is what .env.example documents — is an error.
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:5173"]
+    )
     # Turned off in the test suite so auth tests aren't throttled.
     RATE_LIMIT_ENABLED: bool = True
     # Shared secret the telegram/scheduler containers use to reach /internal/*.
@@ -51,7 +57,7 @@ class Settings(BaseSettings):
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _split_origins(cls, v):
-        """Accept either a JSON list or a plain comma-separated string in .env."""
+        """Accept a JSON list, a comma-separated string, or an actual list."""
         if isinstance(v, str) and not v.strip().startswith("["):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v

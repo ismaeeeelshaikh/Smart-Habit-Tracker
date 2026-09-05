@@ -315,3 +315,75 @@ class TestAddConversation:
 
         assert state == -1
         assert "may be in the past" in update.effective_message.last
+
+
+class TestDoneOrSkipByReply:
+    """Replying to a reminder is the other half of Section 12.6."""
+
+    def reminder_message(self, reminder_id="r1"):
+        """A sent reminder still carrying its buttons — that's where the id lives."""
+        return type(
+            "Msg",
+            (),
+            {"reply_markup": h.action_keyboard(reminder_id), "text": "Suggested task: Read"},
+        )()
+
+    async def test_replying_to_a_reminder_marks_it_done(self, make_context):
+        backend = FakeBackend(responses={"/api/reminders/r1/status": {"id": "r1"}})
+        update = FakeUpdate(text="/done")
+        update.effective_message.reply_to_message = self.reminder_message("r1")
+
+        await h.done_or_skip(update, make_context(backend))
+
+        assert ("PUT", "/api/reminders/r1/status", {"status": "done"}) in backend.calls
+        assert "✅ Marked as done" in update.effective_message.last
+
+    async def test_skip_uses_the_skipped_status(self, make_context):
+        backend = FakeBackend(responses={"/api/reminders/r2/status": {"id": "r2"}})
+        update = FakeUpdate(text="/skip")
+        update.effective_message.reply_to_message = self.reminder_message("r2")
+
+        await h.done_or_skip(update, make_context(backend))
+
+        assert ("PUT", "/api/reminders/r2/status", {"status": "skipped"}) in backend.calls
+        assert "❌ Skipped" in update.effective_message.last
+
+    async def test_replying_to_something_else_still_asks(self, make_context):
+        backend = FakeBackend()
+        update = FakeUpdate(text="/done")
+        # An ordinary message carries no buttons, so there is no id to act on.
+        update.effective_message.reply_to_message = type("Msg", (), {"reply_markup": None})()
+
+        await h.done_or_skip(update, make_context(backend))
+
+        assert "Which task?" in update.effective_message.last
+        assert backend.calls == []
+
+    async def test_an_already_actioned_reminder_has_no_buttons_so_it_asks(self, make_context):
+        """Buttons are stripped after acting, so a late reply can't re-mark it."""
+        backend = FakeBackend()
+        update = FakeUpdate(text="/done")
+        update.effective_message.reply_to_message = type(
+            "Msg", (), {"reply_markup": None, "text": "Suggested task: Read\n\n✅ Marked as done"}
+        )()
+
+        await h.done_or_skip(update, make_context(backend))
+
+        assert "Which task?" in update.effective_message.last
+
+    async def test_a_failed_save_says_so(self, make_context):
+        backend = FakeBackend(responses={"/api/reminders/r1/status": BackendError("nope")})
+        update = FakeUpdate(text="/done")
+        update.effective_message.reply_to_message = self.reminder_message("r1")
+
+        await h.done_or_skip(update, make_context(backend))
+
+        assert "Couldn't save that" in update.effective_message.last
+
+
+def test_the_id_is_read_back_out_of_the_buttons():
+    message = type("Msg", (), {"reply_to_message": type(
+        "Replied", (), {"reply_markup": h.action_keyboard("abc-123")}
+    )()})()
+
+    assert h.reminder_id_from_reply(message) == "abc-123"

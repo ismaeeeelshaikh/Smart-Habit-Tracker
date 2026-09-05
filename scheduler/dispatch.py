@@ -15,21 +15,44 @@ that occasionally stays quiet:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 log = logging.getLogger(__name__)
 
 # How close to a slot's start we send. Wider than the tick interval, so a slot
 # can't slip between two runs.
 LOOKAHEAD = timedelta(minutes=15)
+# ...and how long after it starts we still bother. /slots/next truncates a slot
+# that is already underway to begin "now", so by the time the comparison runs,
+# now has ticked past it by milliseconds. Without this, free time available
+# right this minute would never trigger a reminder at all.
+GRACE = timedelta(minutes=5)
 # Tolerance when matching an existing reminder to a slot.
 MATCH_WINDOW = timedelta(minutes=1)
 
 
 def _parse(value: str) -> datetime:
-    """Backend times are ISO; treat a naive one as UTC rather than guessing."""
+    """Slot times are the user's local wall clock, so keep them naive."""
     parsed = datetime.fromisoformat(value)
     return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+
+
+def local_now(now: datetime, timezone_name: str) -> datetime:
+    """The instant `now`, as the user's own wall clock.
+
+    The slots API works in local wall-clock terms — a schedule block means
+    "09:00 where I live" — so a UTC-based comparison would put a user in
+    Asia/Kolkata five and a half hours out and fire their reminders late, or
+    never. The chat listing carries each user's timezone for exactly this.
+    """
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
+    try:
+        tz = ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        tz = UTC
+    return now.astimezone(tz).replace(tzinfo=None)
 
 
 def build_message(allocation: dict, slot: dict) -> str:
@@ -44,9 +67,9 @@ def build_message(allocation: dict, slot: dict) -> str:
 
 
 def is_due(allocation_start: str, now: datetime) -> bool:
-    """True when the slot starts soon enough to be worth interrupting for."""
+    """True when the slot is close enough — just ahead, or only just begun."""
     start = _parse(allocation_start)
-    return now <= start <= now + LOOKAHEAD
+    return now - GRACE <= start <= now + LOOKAHEAD
 
 
 async def already_dispatched(backend, token: str, allocation_start: str) -> bool:
@@ -66,8 +89,13 @@ async def already_dispatched(backend, token: str, allocation_start: str) -> bool
 
 
 async def dispatch_for_chat(backend, sender, chat: dict, now: datetime) -> bool:
-    """Send at most one reminder to one chat. Returns whether it sent."""
+    """Send at most one reminder to one chat. Returns whether it sent.
+
+    `now` is a reference instant; it is converted to this user's own clock
+    before anything is compared against a slot time.
+    """
     chat_id = chat["chat_id"]
+    now = local_now(now, chat.get("timezone") or "UTC")
 
     token = await backend.token_for(chat_id)
     suggestion = await backend.request_as(token, "GET", "/api/slots/next")
@@ -101,7 +129,7 @@ async def dispatch_for_chat(backend, sender, chat: dict, now: datetime) -> bool:
 
 async def dispatch_once(backend, sender, now: datetime | None = None) -> int:
     """One pass over every linked chat. Returns how many reminders went out."""
-    now = now or datetime.now()
+    now = now or datetime.now(UTC)
 
     try:
         chats = await backend.linked_chats()

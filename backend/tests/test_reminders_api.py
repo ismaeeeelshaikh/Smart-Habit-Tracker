@@ -252,3 +252,31 @@ class TestOwnership:
             json={"goal_id": other_users_goal["id"], "scheduled_time": in_days(1)},
         )
         assert res.status_code == 404
+
+
+class TestSchedulingAroundNow:
+    """A slot starting this minute must be recordable.
+
+    Regression: the future-only rule refused the reminder the dispatcher creates
+    for a slot that has just begun, so proactive reminders could never be saved.
+    """
+
+    async def test_a_reminder_for_right_now_is_accepted(self, auth_client):
+        res = await auth_client.post(
+            "/api/reminders/",
+            json={"label": "Starting now", "scheduled_time": datetime.now(UTC).isoformat()},
+        )
+        assert res.status_code == 201, res.text
+
+    async def test_a_slot_that_began_moments_ago_is_accepted(self, auth_client):
+        just_began = (datetime.now(UTC) - timedelta(seconds=30)).isoformat()
+        res = await auth_client.post(
+            "/api/reminders/", json={"label": "Just began", "scheduled_time": just_began}
+        )
+        assert res.status_code == 201, res.text
+
+    async def test_yesterday_is_still_refused(self, auth_client):
+        res = await auth_client.post(
+            "/api/reminders/", json={"label": "Last week", "scheduled_time": in_days(-1)}
+        )
+        assert res.status_code == 422

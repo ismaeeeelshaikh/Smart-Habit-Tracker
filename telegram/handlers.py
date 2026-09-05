@@ -197,18 +197,62 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await _reply(update, fmt.format_stats(weekly))
 
 
-async def done_or_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/done and /skip without a target.
+def reminder_id_from_reply(message) -> str | None:
+    """Recover which reminder a replied-to message was about.
 
-    Deliberately does not guess which reminder is meant (Section 12.6) — marking
-    the wrong task silently is worse than asking.
+    The id is already in the message's own buttons, so it is read back from
+    there rather than kept in a lookup table that a restart would lose. Buttons
+    are stripped once a reminder is actioned, which conveniently means an
+    already-answered reminder yields nothing and the user is asked instead.
+    """
+    replied = getattr(message, "reply_to_message", None)
+    markup = getattr(replied, "reply_markup", None) if replied else None
+    if not markup:
+        return None
+
+    for row in getattr(markup, "inline_keyboard", []) or []:
+        for button in row:
+            data = getattr(button, "callback_data", "") or ""
+            if data.startswith("status:"):
+                parts = data.split(":", 2)
+                if len(parts) == 3:
+                    return parts[2]
+    return None
+
+
+async def done_or_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/done and /skip.
+
+    Acts on the reminder being replied to. Without that context it asks rather
+    than guessing (Section 12.6) — marking the wrong task silently is worse than
+    asking.
     """
     if not await _guard(update, context):
         return
 
-    await update.effective_message.reply_text(
-        "Which task? Reply to a reminder message, or use /next to see your current suggestion."
-    )
+    message = update.effective_message
+    reminder_id = reminder_id_from_reply(message)
+
+    if reminder_id is None:
+        await message.reply_text(
+            "Which task? Reply to a reminder message, or use /next to see your current suggestion."
+        )
+        return
+
+    action = "skipped" if (message.text or "").startswith("/skip") else "done"
+
+    try:
+        await _client(context).request_as(
+            _chat_id(update),
+            "PUT",
+            f"/api/reminders/{reminder_id}/status",
+            json={"status": action},
+        )
+    except BackendError:
+        await message.reply_text("⚠️ Couldn't save that — please try again.")
+        return
+
+    await message.reply_text(ACTION_APPENDIX[action])
 
 
 # --- inline buttons ---------------------------------------------------------

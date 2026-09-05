@@ -5,7 +5,7 @@ architectural risk worth an explicit test (Phase 8, task 5 — "don't skip this"
 so most of this file is about a reminder going out exactly once.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from conftest import FakeBackend, FakeSender
 
@@ -163,3 +163,77 @@ class TestResilience:
 
         assert sent == 1
         assert [s["chat_id"] for s in sender.sent] == ["43"]
+
+
+class TestUserTimezone:
+    """Slot times are the user's wall clock, not UTC.
+
+    Regression: comparing them against the container's UTC clock put an
+    Asia/Kolkata user 5.5 hours out, so their reminders fired late or never.
+    """
+
+    def test_now_is_converted_into_the_users_clock(self):
+        utc_now = datetime(2026, 9, 5, 14, 30, tzinfo=UTC)
+
+        assert dispatch.local_now(utc_now, "Asia/Kolkata") == datetime(2026, 9, 5, 20, 0)
+
+    def test_a_naive_reference_instant_is_read_as_utc(self):
+        assert dispatch.local_now(datetime(2026, 9, 5, 14, 30), "UTC") == datetime(
+            2026, 9, 5, 14, 30
+        )
+
+    def test_an_unknown_timezone_falls_back_to_utc(self):
+        assert dispatch.local_now(
+            datetime(2026, 9, 5, 14, 30, tzinfo=UTC), "Mars/Olympus_Mons"
+        ) == datetime(2026, 9, 5, 14, 30)
+
+    async def test_a_slot_due_in_the_users_clock_is_sent(self, sender):
+        """20:01 in Kolkata is due when it is 14:30 UTC — 31 minutes earlier it was not."""
+        backend = FakeBackend(
+            chats=[{"chat_id": "42", "timezone": "Asia/Kolkata"}],
+            suggestion=suggestion(start="2026-09-05T20:01:00"),
+        )
+
+        sent = await dispatch.dispatch_once(
+            backend, sender, now=datetime(2026, 9, 5, 14, 30, tzinfo=UTC)
+        )
+
+        assert sent == 1
+
+    async def test_the_same_slot_is_not_due_for_a_utc_user(self, sender):
+        """Same wall-clock time, different timezone — still hours away in UTC."""
+        backend = FakeBackend(
+            chats=[{"chat_id": "42", "timezone": "UTC"}],
+            suggestion=suggestion(start="2026-09-05T20:01:00"),
+        )
+
+        sent = await dispatch.dispatch_once(
+            backend, sender, now=datetime(2026, 9, 5, 14, 30, tzinfo=UTC)
+        )
+
+        assert sent == 0
+
+
+class TestSlotAlreadyUnderway:
+    """/slots/next truncates a running slot to start "now".
+
+    Regression: a strict `now <= start` meant that by the time the comparison
+    ran, now had passed start by milliseconds — so free time available right
+    this minute never produced a reminder.
+    """
+
+    def test_a_slot_that_just_started_is_still_due(self):
+        just_started = (NOW - timedelta(seconds=2)).isoformat()
+
+        assert dispatch.is_due(just_started, NOW) is True
+
+    def test_a_slot_a_few_minutes_underway_is_still_due(self):
+        assert dispatch.is_due((NOW - timedelta(minutes=4)).isoformat(), NOW) is True
+
+    def test_a_long_gone_slot_is_not(self):
+        assert dispatch.is_due((NOW - timedelta(minutes=30)).isoformat(), NOW) is False
+
+    async def test_a_slot_starting_this_instant_gets_sent(self, sender):
+        backend = FakeBackend(suggestion=suggestion(start=NOW.isoformat()))
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1

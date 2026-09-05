@@ -4,9 +4,9 @@ Owns the webhook receiver and every command handler. Talks to the backend over
 its REST API (TRD Section 6.4) rather than the database directly, so validation
 and auth stay centralised in one write path.
 
-Phase 6 fills in the command handlers; for now the process starts, serves
-/health, and stays up even without a bot token configured so that
-`docker compose up` works on a fresh clone.
+Runs in long-polling mode when TELEGRAM_WEBHOOK_URL is blank (local dev) and
+in webhook mode when it is set. Without a bot token it idles instead of
+crashing, so `docker compose up` still works on a fresh clone.
 """
 
 import asyncio
@@ -76,7 +76,14 @@ def register_handlers(application) -> None:
     )
 
 
-async def run_bot() -> None:
+def run_bot() -> None:
+    """Start the bot and block.
+
+    Application.run_polling/run_webhook are synchronous in python-telegram-bot
+    v21: each builds and owns its own event loop. Awaiting them from inside
+    asyncio.run() leaves PTB trying to close a loop that is still running, which
+    fails with "Cannot close a running event loop" — so this stays sync.
+    """
     from telegram.ext import Application
 
     from api_client import BackendClient
@@ -89,7 +96,7 @@ async def run_bot() -> None:
 
     if settings.webhook_mode:
         log.info("starting in webhook mode at %s", settings.TELEGRAM_WEBHOOK_URL)
-        await application.run_webhook(
+        application.run_webhook(
             listen=settings.WEBHOOK_LISTEN_HOST,
             port=settings.WEBHOOK_LISTEN_PORT,
             webhook_url=settings.TELEGRAM_WEBHOOK_URL,
@@ -97,7 +104,7 @@ async def run_bot() -> None:
         )
     else:
         log.info("starting in long-polling mode (local dev)")
-        await application.run_polling()
+        application.run_polling()
 
 
 async def idle() -> None:
@@ -109,17 +116,17 @@ async def idle() -> None:
     await stop.wait()
 
 
-async def main() -> None:
+def main() -> None:
     if not settings.TELEGRAM_BOT_TOKEN:
         log.warning(
             "TELEGRAM_BOT_TOKEN is not set — idling. "
             "Set it in .env to start the bot."
         )
-        await idle()
+        asyncio.run(idle())
         return
 
-    await run_bot()
+    run_bot()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
