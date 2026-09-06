@@ -1,50 +1,74 @@
 # Smart Habit Tracker
 
-An AI-powered personal time intelligence platform: it reads your weekly
-schedule, finds the gaps, and nudges you through Telegram at a moment you are
-actually free.
+**A habit tracker that reads your timetable instead of nagging you at 7pm every day.**
 
-The planning documents this is built from (PRD, technical requirements, screen
-flows, schema, phased plan) live in `docs/`, which is not tracked in this
-repository — ask the maintainer if you need them.
+[![CI](https://github.com/ismaeeeelshaikh/Smart-Habit-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/ismaeeeelshaikh/Smart-Habit-Tracker/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
----
+Most habit apps ask you to pick a time and then remind you at that time forever.
+That works until real life happens — you are in a lecture at 7pm on Tuesdays,
+so you dismiss the reminder, and dismissing it becomes the habit instead.
 
-## Running it locally
-
-### What you need
-
-| | |
-|---|---|
-| Docker Desktop | runs the whole stack |
-| Node 22 | the frontend dev server and its tests |
-| Python 3.11 | only if you want to run backend tests outside Docker |
-| A Telegram bot token | from [@BotFather](https://t.me/BotFather) — optional until you want reminders |
-
-> **Node 22, not newer.** vitest 5's workers hang on Node 24 (they never
-> respond and the run times out with no tests executed). CI pins 22.
+This one asks for your weekly commitments once, works out where the gaps
+actually are, and messages you on Telegram during one of them.
 
 ---
 
-### Getting it running
+## How it works
+
+```
+    you tell it once                it works out                 it messages you
+ ┌──────────────────────┐      ┌────────────────────┐      ┌──────────────────────┐
+ │ College  Mon 9–3     │      │ free: 3:00–10:00pm │      │ You have a free      │
+ │ Gym      Tue 6–7pm   │ ───▶ │ pick by priority   │ ───▶ │ 2 hr slot at 5:00 PM │
+ │                      │      │ that fits the gap  │      │ Suggested: Revise DSA│
+ │ Goal: Revise DSA     │      │                    │      │ ✅ Done ⏳ Later ❌ Skip│
+ │   high · 30 min      │      │                    │      └──────────────────────┘
+ └──────────────────────┘      └────────────────────┘
+```
+
+You tap a button in Telegram; it records what happened and that feeds your
+weekly numbers. The scheduling is plain arithmetic on your calendar — no model
+decides when you are free, so the same schedule always produces the same answer.
+
+---
+
+## What it does
+
+- **Finds your real free time.** Fixed blocks ("College, Mon 9–3") and loose
+  ones ("Sunday: family") both count. Gaps outside your active hours never get
+  suggested — nobody wants a 3am study reminder.
+- **Suggests by priority.** High-priority goals get the good slots; a 30-minute
+  goal is not offered a 15-minute gap.
+- **Delivers on Telegram**, so there is no app to open and nothing to remember.
+- **Acts in one tap.** ✅ Done · ⏳ Later · ❌ Skip, straight from the message.
+- **Leaves you alone when you say so.** Later or Skip buys an hour of quiet.
+  Only Done clears the way for the next suggestion.
+- **Counts honestly.** Completion rate by priority, and the goal you skip most —
+  raw numbers, no encouraging fiction.
+
+---
+
+## Quick start
+
+You need **Docker**, **Node 22** (not 24 — see below), and a Telegram bot token
+from [@BotFather](https://t.me/BotFather) if you want reminders.
 
 ```bash
-git clone <this repo>
-cd smart-habit-tracker
+git clone https://github.com/ismaeeeelshaikh/Smart-Habit-Tracker.git
+cd Smart-Habit-Tracker
 cp .env.example .env      # then edit it, see below
 docker compose up --build
 ```
 
-That builds four containers — Postgres, the API, the Telegram bot, and the
-scheduler — applies the migrations, and leaves the API on
-<http://localhost:8000>. Check it:
+That starts Postgres, the API, the bot and the scheduler, and applies the
+migrations. Check it:
 
 ```bash
 curl http://localhost:8000/health     # {"status":"ok"}
 ```
 
-The frontend is *not* in that command by default, because you almost always
-want the hot-reloading dev server instead:
+The frontend runs separately in dev, so you get hot reload:
 
 ```bash
 cd frontend
@@ -52,66 +76,121 @@ npm ci
 npm run dev                            # http://localhost:5173
 ```
 
-It proxies `/api` and `/auth` through to the backend, so nothing else to
-configure. (`docker compose --profile full up` builds the static production
-frontend instead, if you want to check that specifically.)
-
----
-
 ### Filling in `.env`
 
-`.env.example` documents every key. Four are worth calling out:
+`.env.example` documents every key. Four matter more than the rest:
 
 ```bash
-# Generate real values for both of these:
-JWT_SECRET=$(openssl rand -hex 32)
-INTERNAL_API_KEY=$(openssl rand -hex 32)   # the bot and scheduler present this
-                                           # on /internal/*; it must match the
-                                           # backend's
+JWT_SECRET=$(openssl rand -hex 32)          # generate a real one
+INTERNAL_API_KEY=$(openssl rand -hex 32)    # the bot and scheduler present this
 
 COOKIE_SECURE=false        # the refresh cookie is HTTPS-only otherwise, so
-                           # local plain-http login silently fails to persist
+                           # login over plain http silently fails to persist
 
 TELEGRAM_WEBHOOK_URL=      # leave EMPTY locally -> the bot long-polls.
-                           # Setting it switches to webhook mode, which needs a
-                           # public HTTPS URL Telegram can actually reach.
+                           # Setting it needs a public HTTPS URL Telegram can reach.
 ```
 
-Two things that will waste your afternoon if you get them wrong:
+Two things that will cost you an afternoon:
 
-- **The setting is `JWT_SECRET`, not `JWT_SECRET_KEY`.** A misspelled key is
-  ignored silently and the app falls back to its insecure built-in default.
+- **The key is `JWT_SECRET`, not `JWT_SECRET_KEY`.** A misspelled name is
+  ignored in silence and the app falls back to an insecure default.
 - **Leave `DATABASE_URL` commented out.** It overrides the `POSTGRES_*` parts,
-  so a `localhost` URL there means the backend container tries to reach a
-  database inside itself and dies. Let it be assembled instead.
-
----
+  so a `localhost` URL makes the backend look for a database inside its own
+  container.
 
 ### Connecting Telegram
 
 1. Message [@BotFather](https://t.me/BotFather), send `/newbot`, follow it.
 2. Put the token in `TELEGRAM_BOT_TOKEN` and the name (no `@`) in
-   `TELEGRAM_BOT_USERNAME`.
-3. `docker compose up -d --build telegram`
-4. In the web app: Settings → Telegram → **Generate linking code**.
-5. Send that code to your bot. It should reply "Connected".
+   `TELEGRAM_BOT_USERNAME`, then `docker compose up -d --build telegram`.
+3. In the web app: **Settings → Telegram → Generate linking code**.
+4. Send that code to your bot. It replies "Connected".
 
-Then `/help` in the chat lists everything the bot can do.
+The code is a one-time password proving that Telegram account is yours. It
+lasts 10 minutes; generate another if it lapses.
+
+---
+
+## Using it
+
+### The web app
+
+| Screen | For |
+|---|---|
+| **Dashboard** | Today's free slots, the next suggestion, this week at a glance |
+| **Schedule** | Your weekly commitments — the input everything else depends on |
+| **Goals** | What you want time for, with a priority and a duration |
+| **Reminders** | History and status, and a form to add one by hand |
+| **Stats** | Completion rate per priority, and your most-skipped goal |
+| **Settings** | Active hours, password, Telegram connection |
+
+**Add your real schedule first.** With an empty schedule the app believes you
+are free from 8am to 10pm every day, and its suggestions are meaningless.
+
+### The bot
+
+| Command | Does |
+|---|---|
+| `/today` | Today's commitments and the gaps between them |
+| `/free` | Just the free time left today |
+| `/next` | Your next suggested task, with Done / Later / Skip buttons |
+| `/add` | Sets a reminder — asks name, date, time, repeat |
+| `/stats` | This week's numbers |
+| `/schedule` | The whole week |
+| `/help` | The list above |
+
+Reminders also arrive on their own, without you asking — that is the point of
+the thing. The scheduler checks every five minutes and messages you when a free
+slot is about to start.
+
+`/add` takes times how you would write them: `9:30 pm`, `9pm`, `21:30`. Dates
+take `today` and `tomorrow` as well as `2026-09-10`.
+
+---
+
+## How it is built
+
+```
+browser ──▶ frontend (React, Vite, Tailwind)
+                │  /api, /auth
+                ▼
+            backend (FastAPI) ──▶ Postgres
+                ▲   ▲
+   /internal/* │   │ /internal/*
+                │   │
+          telegram   scheduler
+        (python-     (APScheduler)
+      telegram-bot)      │
+                │        │
+                ▼        ▼
+            Telegram Bot API
+```
+
+Two rules the design leans on:
+
+- **The bot and scheduler never touch the database.** They exchange a chat id
+  for a short-lived user token and then call the same `/api` routes the browser
+  does, so ownership checks and validation live in exactly one place.
+- **The scheduler is its own container**, so one process owns job execution and
+  nobody is reminded twice.
+
+Slot detection and allocation are pure functions shared by the API and the
+scheduler — same code, one implementation, deterministic output.
 
 ---
 
 ## Running the tests
 
-Four suites, one per package. CI runs all four.
-
-The backend suite needs a Postgres; the compose one does fine. Take the user,
-password and port from your own `.env` — the placeholders below show what to
-substitute.
+373 tests across four suites. CI runs all of them, plus image builds for x86 and
+ARM.
 
 ```bash
+# Backend — needs Postgres. Use the compose one; take user, password and port
+# from your own .env.
 docker compose up -d db
 docker exec time_intel_db psql -U postgres -c "CREATE DATABASE smart_habit_tracker_test"
-docker compose port db 5432          # prints the <HOST_PORT> to use
+docker compose port db 5432          # prints the <HOST_PORT> below
 
 cd backend
 python -m venv venv
@@ -129,101 +208,53 @@ cd scheduler && pip install -r requirements-dev.txt && pytest -q
 cd frontend  && npm run test:run && npm run typecheck && npm run lint
 ```
 
----
-## How the pieces fit
-
-```
-browser ──> frontend (Vite/React)
-                │  /api, /auth
-                v
-            backend (FastAPI) ──> Postgres
-                ^   ^
-   /internal/* │   │ /internal/*
-                │   │
-          telegram   scheduler
-           (bot)     (APScheduler)
-                │
-                v
-          Telegram Bot API
-```
-
-Two rules the architecture depends on:
-
-- **The bot and scheduler never touch the database.** They swap a chat id for a
-  short-lived user token at `/internal/telegram/token` and then call the same
-  `/api` routes the browser does, so ownership checks and validation live in one
-  place.
-- **The scheduler is its own container**, so exactly one process owns job
-  execution and nobody gets reminded twice
-  (TRD Section 6).
+> **Use Node 22.** vitest 5's workers hang on Node 24 — the run times out having
+> executed nothing. CI pins 22.
 
 ---
 
 ## Deploying
 
-Single host, Docker Compose, Caddy in front for HTTPS — Telegram will not
-deliver webhooks to anything else.
+Free, permanently, without buying a server or a domain — see
+**[DEPLOYING.md](DEPLOYING.md)**.
 
-```bash
-# On the VPS, with .env filled in for this environment:
-export DOMAIN=your-host.example.com
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-```
-
-The production overlay differs from local in ways that matter:
-
-- **Migrations run as their own one-off service** that the API waits on, so a
-  bad migration stops the deploy instead of leaving an API serving against a
-  schema it does not match (TRD 8.4).
-- **Only Caddy publishes ports.** The database, API, bot and scheduler are
-  reachable only on the compose network — `/internal/*` is deliberately not
-  routed, so the bot-and-scheduler endpoints cannot be reached from outside.
-- **No source bind-mounts**, so the image is exactly what runs.
-- **The bot runs in webhook mode**, which is why the HTTPS is not optional. Set
-  `TELEGRAM_WEBHOOK_URL=https://$DOMAIN/telegram/webhook` and a random
-  `TELEGRAM_WEBHOOK_SECRET`.
-
-Staging and production must use **separate bot tokens and separate databases**.
-One bot cannot serve two environments: Telegram delivers each update once, so
-whichever environment registered the webhook last silently swallows the other's
-traffic.
-
-### Backups
-
-`docker/backup.sh` dumps the database, keeps 14 days, and uploads off-host.
-Install it on the host, not in a container:
-
-```bash
-0 3 * * *  /opt/smart-habit-tracker/docker/backup.sh >> /var/log/sht-backup.log 2>&1
-```
-
-Set `S3_TARGET` to somewhere off this machine. A backup that lives on the VPS
-does not survive losing the VPS, which is the case it exists for. The script
-fails loudly on a suspiciously small dump rather than reporting success.
-
-Restore:
-
-```bash
-gunzip -c smart_habit_tracker-<stamp>.sql.gz | docker exec -i time_intel_db psql -U postgres -d smart_habit_tracker
-```
+The short version: most free tiers sleep a service after ~15 minutes of no HTTP
+traffic, which kills the scheduler and with it the whole point of the product.
+Oracle Cloud Always Free gives a real VM that stays awake, and
+`docker-compose.prod.yml` runs on it unchanged.
 
 ---
 
-## When something looks wrong
+## Troubleshooting
 
 | Symptom | Cause |
 |---|---|
-| `env: 'sh\r': No such file or directory` | A shell script got CRLF endings. `.gitattributes` prevents this; if you see it, re-clone or run `git add --renormalize .` |
+| `env: 'sh\r': No such file or directory` | A shell script picked up CRLF endings. `.gitattributes` prevents it; if you see it, re-clone or `git add --renormalize .` |
 | Backend exits with `SettingsError` | A malformed value in `.env` — the message names the field |
-| Backend can't reach the database | `DATABASE_URL` is set in `.env`; comment it out |
-| Bot: `Cannot close a running event loop` | You are on an old checkout; `run_polling` must not be awaited |
-| Bot ignores you | It is not linked. Send it your code from Settings first |
-| No reminders arrive | Check `docker logs time_intel_scheduler`. Reminders only fire for a slot starting within 15 minutes, and only once per slot |
-| Login doesn't persist | `COOKIE_SECURE=true` over plain http |
-| `vitest` times out with no tests | You are on Node 24. Use Node 22 |
-
-Logs for any container:
+| Backend cannot reach the database | `DATABASE_URL` is set in `.env`; comment it out |
+| Bot ignores you | It is not linked. Send it your code from Settings |
+| No reminders arrive | Check `docker compose logs scheduler`. They only fire for a slot starting within 15 minutes, once per hour unless you tap Done |
+| Times are hours out | The container is missing `tzdata`, so your timezone silently fell back to UTC. Rebuild |
+| Login does not persist | `COOKIE_SECURE=true` over plain http |
+| `vitest` times out having run nothing | You are on Node 24. Use Node 22 |
 
 ```bash
 docker compose logs -f backend    # or telegram, scheduler, db
 ```
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+- Run the four test suites before opening a PR; CI runs the same ones.
+- The planning documents (PRD, technical requirements, screen flows, schema)
+  are not tracked in this repository — ask if you need them for a change that
+  touches product behaviour.
+- Keep scheduling logic free of any model or API call. It is deliberately
+  deterministic: the same schedule must always produce the same answer.
+
+## License
+
+[MIT](LICENSE) — use it, fork it, run your own.
