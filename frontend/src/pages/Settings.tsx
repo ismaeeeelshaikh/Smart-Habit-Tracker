@@ -8,7 +8,7 @@ import { ApiError, changePassword, disconnectTelegram, updatePreferences } from 
 
 const inputClass =
     'block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] ' +
-    'py-[10px] px-3 text-[var(--color-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] text-[15px]';
+    'py-[10px] px-3 text-[var(--color-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)] text-[15px]';
 
 const PasswordSection: React.FC = () => {
     const [current, setCurrent] = useState('');
@@ -137,7 +137,7 @@ const ActiveHoursSection: React.FC = () => {
             await refreshUser();
             setSuccess('Active hours updated.');
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Could not save. Please try again.');
+            setError(err instanceof ApiError ? err.message : "Couldn't save that. Please try again.");
         } finally {
             setIsSaving(false);
         }

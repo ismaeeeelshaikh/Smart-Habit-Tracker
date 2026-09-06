@@ -20,7 +20,7 @@ export const TelegramLink = () => {
             await refreshUser();
             navigate('/dashboard', { replace: true });
         } catch {
-            setError('Could not finish setup. Please try again.');
+            setError("Couldn't finish setup. Please try again.");
         } finally {
             setIsFinishing(false);
         }

@@ -338,7 +338,7 @@ async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def add_label(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     label = (update.effective_message.text or "").strip()
     if not label:
-        await update.effective_message.reply_text("I didn't understand that. Please send a name.")
+        await update.effective_message.reply_text("I didn't understand that. Try a short name, like Revise DSA.")
         return ASK_LABEL
 
     context.user_data["label"] = label[:150]
@@ -380,7 +380,7 @@ async def add_recurrence(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     choice = (update.effective_message.text or "").strip().lower()
     if choice not in {"none", "daily", "weekdays"}:
         await update.effective_message.reply_text(
-            "I didn't understand that. Please try again with: none, daily, or weekdays."
+            "I didn't understand that. Try none, daily, or weekdays."
         )
         return ASK_RECURRENCE
 

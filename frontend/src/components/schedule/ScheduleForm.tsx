@@ -33,17 +33,17 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({ dayOfWeek, initialDa
         setError(null);
         
         if (!label.trim()) {
-            setError('Label is required');
+            setError('Label is required.');
             return;
         }
 
         if (!isFlexible) {
             if (!startTime || !endTime) {
-                setError('Start and end times are required for fixed blocks');
+                setError('Start and end times are required for fixed blocks.');
                 return;
             }
             if (startTime >= endTime) {
-                setError('End time must be after start time');
+                setError('End time must be after start time.');
                 return;
             }
         }
@@ -59,7 +59,7 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({ dayOfWeek, initialDa
                 flexible_availability: isFlexible ? availability : null,
             });
         } catch (err: any) {
-            setError(err.message || 'Failed to save block');
+            setError(err.message || "Couldn't save that block. Please try again.");
         } finally {
             setIsSubmitting(false);
         }

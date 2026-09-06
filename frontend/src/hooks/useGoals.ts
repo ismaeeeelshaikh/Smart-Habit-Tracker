@@ -13,7 +13,7 @@ export const useGoals = () => {
             setGoals(await getGoals());
             setError(null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load goals.');
+            setError(err instanceof Error ? err.message : "Couldn't load your goals. Please try again.");
         } finally {
             setIsLoading(false);
         }

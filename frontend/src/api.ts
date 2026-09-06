@@ -118,23 +118,23 @@ const jsonBody = (method: string, data: unknown): RequestInit => ({
 // --- Auth / identity -------------------------------------------------------
 
 export const getMe = (): Promise<User> =>
-    request<User>('/auth/me', {}, 'Failed to load your account');
+    request<User>('/auth/me', {}, "Couldn't load your account. Please try again.");
 
 export const completeOnboarding = (): Promise<User> =>
-    request<User>('/api/users/me/complete-onboarding', { method: 'POST' }, 'Failed to finish setup');
+    request<User>('/api/users/me/complete-onboarding', { method: 'POST' }, "Couldn't finish setup. Please try again.");
 
 export const changePassword = (current_password: string, new_password: string): Promise<void> =>
     request<void>(
         '/auth/change-password',
         jsonBody('POST', { current_password, new_password }),
-        'Failed to change password',
+        "Couldn't change your password. Please try again.",
     );
 
 export const updatePreferences = (data: PreferencesUpdate): Promise<User> =>
     request<User>(
         '/api/users/me/preferences',
         jsonBody('PATCH', data),
-        'Failed to update preferences',
+        "Couldn't save your preferences. Please try again.",
     );
 
 // --- Slots -----------------------------------------------------------------
@@ -155,33 +155,33 @@ export const getNextSuggestion = (): Promise<NextSuggestion> =>
 // --- Schedule --------------------------------------------------------------
 
 export const getScheduleBlocks = (): Promise<ScheduleBlock[]> =>
-    request<ScheduleBlock[]>('/api/schedule/', {}, 'Failed to fetch schedule blocks');
+    request<ScheduleBlock[]>('/api/schedule/', {}, "Couldn't load your schedule. Please try again.");
 
 export const createScheduleBlock = (data: ScheduleBlockCreate): Promise<ScheduleBlock> =>
-    request<ScheduleBlock>('/api/schedule/', jsonBody('POST', data), 'Failed to create block');
+    request<ScheduleBlock>('/api/schedule/', jsonBody('POST', data), "Couldn't save that block. Please try again.");
 
 export const updateScheduleBlock = (
     id: string,
     data: ScheduleBlockUpdate,
 ): Promise<ScheduleBlock> =>
-    request<ScheduleBlock>(`/api/schedule/${id}`, jsonBody('PUT', data), 'Failed to update block');
+    request<ScheduleBlock>(`/api/schedule/${id}`, jsonBody('PUT', data), "Couldn't update that block. Please try again.");
 
 export const deleteScheduleBlock = (id: string): Promise<void> =>
-    request<void>(`/api/schedule/${id}`, { method: 'DELETE' }, 'Failed to delete block');
+    request<void>(`/api/schedule/${id}`, { method: 'DELETE' }, "Couldn't delete that block. Please try again.");
 
 // --- Goals -----------------------------------------------------------------
 
 export const getGoals = (): Promise<Goal[]> =>
-    request<Goal[]>('/api/goals/', {}, 'Failed to fetch goals');
+    request<Goal[]>('/api/goals/', {}, "Couldn't load your goals. Please try again.");
 
 export const createGoal = (data: GoalCreate): Promise<Goal> =>
-    request<Goal>('/api/goals/', jsonBody('POST', data), 'Failed to create goal');
+    request<Goal>('/api/goals/', jsonBody('POST', data), "Couldn't save that goal. Please try again.");
 
 export const updateGoal = (id: string, data: GoalUpdate): Promise<Goal> =>
-    request<Goal>(`/api/goals/${id}`, jsonBody('PUT', data), 'Failed to update goal');
+    request<Goal>(`/api/goals/${id}`, jsonBody('PUT', data), "Couldn't update that goal. Please try again.");
 
 export const deleteGoal = (id: string): Promise<void> =>
-    request<void>(`/api/goals/${id}`, { method: 'DELETE' }, 'Failed to delete goal');
+    request<void>(`/api/goals/${id}`, { method: 'DELETE' }, "Couldn't delete that goal. Please try again.");
 
 // --- Reminders -------------------------------------------------------------
 

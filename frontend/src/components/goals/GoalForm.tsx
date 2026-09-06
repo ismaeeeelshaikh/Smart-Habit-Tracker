@@ -22,18 +22,18 @@ export const GoalForm: React.FC<GoalFormProps> = ({ initialData, onSubmit, onCan
         setError(null);
         
         if (!name.trim()) {
-            setError('Name is required');
+            setError('Name is required.');
             return;
         }
 
         if (!priority) {
-            setError('Priority is required');
+            setError('Priority is required.');
             return;
         }
 
         const durationNum = parseInt(duration, 10);
         if (isNaN(durationNum) || durationNum <= 0) {
-            setError('Duration must be a positive number');
+            setError('Duration must be a positive number.');
             return;
         }
 
@@ -45,7 +45,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({ initialData, onSubmit, onCan
                 estimated_duration_minutes: durationNum,
             });
         } catch (err: any) {
-            setError(err.message || 'Failed to save goal');
+            setError(err.message || "Couldn't save that goal. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
