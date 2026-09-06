@@ -30,6 +30,11 @@ LOOKAHEAD = timedelta(minutes=15)
 GRACE = timedelta(minutes=5)
 # Tolerance when matching an existing reminder to a slot.
 MATCH_WINDOW = timedelta(minutes=1)
+# How long an unanswered nudge suppresses the next one. Without this the bot
+# re-suggests every tick: /slots/next truncates a running slot to begin "now",
+# so the start time advances with the clock and a start-keyed check never
+# matches its own previous send.
+RESEND_COOLDOWN = timedelta(minutes=60)
 
 
 def _parse(value: str) -> datetime:
@@ -72,8 +77,15 @@ def is_due(allocation_start: str, now: datetime) -> bool:
     return now - GRACE <= start <= now + LOOKAHEAD
 
 
-async def already_dispatched(backend, token: str, allocation_start: str) -> bool:
-    """Has a reminder already been sent for this slot?"""
+async def recently_nudged(backend, token: str, allocation_start: str, now: datetime) -> bool:
+    """Is there already a nudge this user hasn't answered?
+
+    Asking "did we send one for this exact slot?" does not work: a slot already
+    underway is reported as starting "now", so its start moves with every tick
+    and each pass looks like a brand new slot. The question that actually
+    matters is whether we interrupted them recently and they have yet to reply —
+    an ignored reminder means leave them alone for a while, not try harder.
+    """
     start = _parse(allocation_start)
     existing = await backend.request_as(
         token,
@@ -81,7 +93,7 @@ async def already_dispatched(backend, token: str, allocation_start: str) -> bool
         "/api/reminders/",
         params={
             "status": "pending",
-            "start": (start - MATCH_WINDOW).isoformat(),
+            "start": (now - RESEND_COOLDOWN).isoformat(),
             "end": (start + MATCH_WINDOW).isoformat(),
         },
     )
@@ -109,7 +121,7 @@ async def dispatch_for_chat(backend, sender, chat: dict, now: datetime) -> bool:
     if not is_due(allocation["start"], now):
         return False
 
-    if await already_dispatched(backend, token, allocation["start"]):
+    if await recently_nudged(backend, token, allocation["start"], now):
         return False
 
     reminder = await backend.request_as(

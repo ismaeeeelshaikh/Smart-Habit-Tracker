@@ -37,7 +37,12 @@ class FakeBackend:
         if path == "/api/slots/next":
             return self.suggestion
         if path == "/api/reminders/" and method == "GET":
-            return mine
+            lo = (params or {}).get("start")
+            hi = (params or {}).get("end")
+            def inside(r):
+                t = r.get("scheduled_time")
+                return (not lo or t >= lo) and (not hi or t <= hi)
+            return [r for r in mine if inside(r)]
         if path == "/api/reminders/" and method == "POST":
             created = {"id": f"r{len(self.created) + 1}", **(json or {})}
             self.created.append(created)

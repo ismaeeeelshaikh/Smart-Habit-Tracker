@@ -237,3 +237,44 @@ class TestSlotAlreadyUnderway:
         backend = FakeBackend(suggestion=suggestion(start=NOW.isoformat()))
 
         assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1
+
+
+class TestDoesNotNag:
+    """Regression: the bot re-suggested every five minutes.
+
+    A slot already underway is reported as starting "now", so its start advanced
+    with the clock and a start-keyed duplicate check never matched its own
+    previous send. Six reminders reached a real user before this was caught.
+    """
+
+    async def test_a_moving_slot_start_does_not_produce_a_new_nudge(self, sender):
+        backend = FakeBackend(suggestion=suggestion(start=NOW.isoformat()))
+
+        # Every tick, the free slot is reported as starting at that moment.
+        for minute in (0, 5, 10, 15, 20, 25):
+            moment = NOW + timedelta(minutes=minute)
+            backend.suggestion = suggestion(start=moment.isoformat())
+            await dispatch.dispatch_once(backend, sender, now=moment)
+
+        assert len(sender.sent) == 1, f"nagged {len(sender.sent)} times"
+
+    async def test_an_unanswered_nudge_suppresses_the_next_one(self, sender):
+        backend = FakeBackend(suggestion=suggestion(start=NOW.isoformat()))
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+
+        later = NOW + timedelta(minutes=30)
+        backend.suggestion = suggestion(start=later.isoformat())
+        await dispatch.dispatch_once(backend, sender, now=later)
+
+        assert len(sender.sent) == 1
+
+    async def test_it_may_nudge_again_once_the_cooldown_passes(self, sender):
+        backend = FakeBackend(suggestion=suggestion(start=NOW.isoformat()))
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+
+        # Long enough later that the earlier nudge is no longer recent.
+        much_later = NOW + dispatch.RESEND_COOLDOWN + timedelta(minutes=5)
+        backend.suggestion = suggestion(start=much_later.isoformat())
+        await dispatch.dispatch_once(backend, sender, now=much_later)
+
+        assert len(sender.sent) == 2
