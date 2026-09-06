@@ -32,9 +32,9 @@ export const InlineConfirm: React.FC<InlineConfirmProps> = ({
         >
           {confirmLabel}
         </Button>
-        <button 
+        <button
           onClick={() => setIsConfirming(false)}
-          className="text-[var(--color-ink)] hover:underline font-medium"
+          className="text-[var(--color-ink)] hover:underline font-medium rounded-[6px] px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ink)]"
         >
           {cancelLabel}
         </button>
@@ -42,9 +42,16 @@ export const InlineConfirm: React.FC<InlineConfirmProps> = ({
     );
   }
 
+  // A button, not a div with onClick: this is the delete trigger, and as a div
+  // it could not be reached or fired from a keyboard at all.
   return (
-    <div onClick={() => setIsConfirming(true)} className="inline-block cursor-pointer">
+    <button
+      type="button"
+      onClick={() => setIsConfirming(true)}
+      aria-label={promptMessage}
+      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-[8px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)]"
+    >
       {children}
-    </div>
+    </button>
   );
 };

@@ -48,3 +48,17 @@ body {
   color: var(--color-ink);
   font-family: var(--font-inter);
 }
+
+/* Someone who has asked their OS to reduce motion should not be handed a
+   fade-and-slide on every screen. Kept to a media query rather than removing
+   the animations, so the default experience is unchanged. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

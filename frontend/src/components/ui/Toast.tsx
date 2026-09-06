@@ -41,10 +41,10 @@ export const Toast: React.FC<ToastProps> = ({
       <p className="text-[14px] font-inter text-[var(--color-ink)] mr-4">{message}</p>
       <button 
         onClick={onClose} 
-        className="text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors focus:outline-none"
-        aria-label="Close notification"
+        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -m-2 rounded-[8px] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)]"
+        aria-label="Dismiss notification"
       >
-        <X className="w-4 h-4" />
+        <X className="w-4 h-4" aria-hidden="true" />
       </button>
     </div>
   );

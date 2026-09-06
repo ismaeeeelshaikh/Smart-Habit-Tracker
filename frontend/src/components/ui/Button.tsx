@@ -11,12 +11,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', isLoading, children, disabled, ...props }, ref) => {
     
-    const baseStyles = "inline-flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none disabled:bg-[var(--color-border)] disabled:text-[var(--color-ink-muted)] disabled:border-transparent font-inter font-medium";
+    // focus-visible rather than focus: a ring on every mouse click is noise, but
+    // a keyboard user with no ring at all is lost. min-h-[44px] is the Design
+    // Brief's tap-target floor; touch-manipulation drops the 300ms double-tap
+    // delay on mobile.
+    const baseStyles = "inline-flex items-center justify-center min-h-[44px] touch-manipulation transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-[var(--color-border)] disabled:text-[var(--color-ink-muted)] disabled:border-transparent font-inter font-medium";
     
     const variants = {
-      primary: "bg-[var(--color-free)] text-white rounded-[10px] px-[20px] py-[12px] hover:brightness-90 focus:ring-[var(--color-free)]",
-      secondary: "bg-transparent border border-[var(--color-border)] text-[var(--color-ink)] rounded-[10px] px-[20px] py-[12px] hover:bg-gray-50 focus:ring-[var(--color-ink)]",
-      destructive: "bg-transparent text-[var(--color-error)] hover:underline focus:ring-[var(--color-error)] px-2 py-1"
+      primary: "bg-[var(--color-free)] text-white rounded-[10px] px-[20px] py-[12px] hover:brightness-90 focus-visible:ring-[var(--color-free)]",
+      secondary: "bg-transparent border border-[var(--color-border)] text-[var(--color-ink)] rounded-[10px] px-[20px] py-[12px] hover:bg-gray-50 focus-visible:ring-[var(--color-ink)]",
+      destructive: "bg-transparent text-[var(--color-error)] hover:underline focus-visible:ring-[var(--color-error)] rounded-[8px] px-3 py-2"
     };
 
     return (
