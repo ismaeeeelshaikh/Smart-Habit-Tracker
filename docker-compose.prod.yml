@@ -1,0 +1,90 @@
+# Production overlay. Use it alongside the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# What it changes:
+#   - migrations become a one-off service the API waits on (TRD Section 8.4)
+#   - Caddy terminates HTTPS; nothing else publishes a port
+#   - the database is no longer reachable from outside the compose network
+#   - no source bind-mounts, so the image is what actually runs
+#   - the bot runs in webhook mode, which is why HTTPS is mandatory
+services:
+  db:
+    # Published in dev for psql access; in production the only things that need
+    # it are on this network already.
+    ports: !reset []
+    restart: always
+
+  # Runs to completion, then the API starts. A failed migration fails the deploy
+  # rather than leaving an API serving against a schema it does not match.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: time_intel_migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+    entrypoint: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  backend:
+    ports: !reset []
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      # The migrate service above already did this.
+      RUN_MIGRATIONS: "false"
+    # The image is the artifact in production; no live source mount.
+    volumes: !reset []
+    restart: always
+
+  telegram:
+    # Caddy proxies /telegram/* here; the container itself stays unpublished.
+    ports: !reset []
+    restart: always
+
+  scheduler:
+    restart: always
+
+  frontend:
+    # Served through Caddy rather than published directly, so drop the dev-only
+    # profile that keeps it out of `docker compose up`.
+    profiles: !reset []
+    ports: !reset []
+    restart: always
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: time_intel_caddy
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN to the public hostname}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    restart: always
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

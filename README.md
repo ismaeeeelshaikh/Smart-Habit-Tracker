@@ -159,6 +159,56 @@ Two rules the architecture depends on:
 
 ---
 
+## Deploying
+
+Single host, Docker Compose, Caddy in front for HTTPS — Telegram will not
+deliver webhooks to anything else.
+
+```bash
+# On the VPS, with .env filled in for this environment:
+export DOMAIN=your-host.example.com
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+The production overlay differs from local in ways that matter:
+
+- **Migrations run as their own one-off service** that the API waits on, so a
+  bad migration stops the deploy instead of leaving an API serving against a
+  schema it does not match (TRD 8.4).
+- **Only Caddy publishes ports.** The database, API, bot and scheduler are
+  reachable only on the compose network — `/internal/*` is deliberately not
+  routed, so the bot-and-scheduler endpoints cannot be reached from outside.
+- **No source bind-mounts**, so the image is exactly what runs.
+- **The bot runs in webhook mode**, which is why the HTTPS is not optional. Set
+  `TELEGRAM_WEBHOOK_URL=https://$DOMAIN/telegram/webhook` and a random
+  `TELEGRAM_WEBHOOK_SECRET`.
+
+Staging and production must use **separate bot tokens and separate databases**.
+One bot cannot serve two environments: Telegram delivers each update once, so
+whichever environment registered the webhook last silently swallows the other's
+traffic.
+
+### Backups
+
+`docker/backup.sh` dumps the database, keeps 14 days, and uploads off-host.
+Install it on the host, not in a container:
+
+```bash
+0 3 * * *  /opt/smart-habit-tracker/docker/backup.sh >> /var/log/sht-backup.log 2>&1
+```
+
+Set `S3_TARGET` to somewhere off this machine. A backup that lives on the VPS
+does not survive losing the VPS, which is the case it exists for. The script
+fails loudly on a suspiciously small dump rather than reporting success.
+
+Restore:
+
+```bash
+gunzip -c smart_habit_tracker-<stamp>.sql.gz | docker exec -i time_intel_db psql -U postgres -d smart_habit_tracker
+```
+
+---
+
 ## When something looks wrong
 
 | Symptom | Cause |

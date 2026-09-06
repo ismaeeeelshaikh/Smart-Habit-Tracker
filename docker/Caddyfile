@@ -1,0 +1,54 @@
+# Reverse proxy for a single-host deployment (TRD Section 8.1).
+#
+# Caddy rather than Nginx because it obtains and renews certificates on its own,
+# and Telegram refuses to deliver webhooks to anything but valid HTTPS — which
+# makes automatic certificates the difference between "it works" and "it works
+# until the cert expires at 3am".
+#
+# Set DOMAIN in the environment. For a staging box use its own hostname, never
+# production's, so the two never share a certificate or a bot.
+
+{$DOMAIN} {
+	encode gzip
+
+	# The bot's webhook. Telegram posts here; the path carries the bot token, so
+	# it is matched by prefix rather than spelled out in this file.
+	handle /telegram/* {
+		reverse_proxy telegram:8080
+	}
+
+	# API surface. /internal/* is deliberately absent: those routes are for the
+	# bot and scheduler on the compose network and must never be reachable from
+	# outside.
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle /auth/* {
+		reverse_proxy backend:8000
+	}
+
+	handle /health {
+		reverse_proxy backend:8000
+	}
+
+	# Everything else is the single-page app.
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
