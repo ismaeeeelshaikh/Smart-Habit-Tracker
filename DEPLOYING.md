@@ -119,6 +119,73 @@ Then set up backups — `docker/backup.sh`, per the README.
 
 ---
 
+## One service at a time
+
+Two different things get confused here, so both are spelled out.
+
+### Building the ARM images on your laptop
+
+This is only the pre-flight check, before you touch a server. Each build runs
+under emulation and is CPU-hungry; running two at once will exhaust the machine
+and fail in a way that looks exactly like a real incompatibility. Wait for each
+to finish:
+
+```bash
+docker run --privileged --rm tonistiigi/binfmt --install arm64   # once per machine
+
+docker buildx build --platform linux/arm64 ./backend
+docker buildx build --platform linux/arm64 ./telegram
+docker buildx build --platform linux/arm64 -f scheduler/Dockerfile .
+docker buildx build --platform linux/arm64 ./frontend
+```
+
+Nothing is deployed by these; they only answer "does it compile for ARM".
+
+### Updating one service on the server
+
+`docker compose ... up -d` rebuilds and restarts everything, which means the API
+goes down while the frontend rebuilds for no reason. Name the service instead
+and only that one is touched:
+
+```bash
+cd Smart-Habit-Tracker
+git pull
+export DOMAIN=your-name.duckdns.org
+COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+
+$COMPOSE up -d --build backend        # only the API restarts
+```
+
+Order matters when a release changes more than one thing, because the API and
+the database schema have to agree:
+
+```bash
+$COMPOSE run --rm migrate             # 1. schema first, and stop here if it fails
+$COMPOSE up -d --build backend        # 2. the API, now matching that schema
+$COMPOSE up -d --build scheduler telegram   # 3. the things that call the API
+$COMPOSE up -d --build frontend       # 4. static files, last and harmless
+```
+
+Migrations first is not arbitrary: a new API against an old schema fails on
+every request, while an old API against a new schema usually keeps working,
+because these migrations add rather than remove. That asymmetry is what makes
+this order the safe one.
+
+Check what happened, and undo it if needed:
+
+```bash
+$COMPOSE ps                    # what is up, and is it healthy
+$COMPOSE logs -f --tail=50 backend
+curl -fsS https://$DOMAIN/health
+
+git checkout <previous-commit> && $COMPOSE up -d --build backend   # roll back one service
+```
+
+A rollback that crosses a migration is a different problem — restore from a dump
+(see Backups) rather than hoping the old code tolerates the new schema.
+
+---
+
 ## Alternatives, honestly
 
 **Fly.io** — Docker-native and genuinely good, but it wants one process per app
