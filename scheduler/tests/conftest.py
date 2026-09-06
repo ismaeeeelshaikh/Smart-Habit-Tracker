@@ -44,7 +44,7 @@ class FakeBackend:
                 return (not lo or t >= lo) and (not hi or t <= hi)
             return [r for r in mine if inside(r)]
         if path == "/api/reminders/" and method == "POST":
-            created = {"id": f"r{len(self.created) + 1}", **(json or {})}
+            created = {"id": f"r{len(self.created) + 1}", "status": "pending", **(json or {})}
             self.created.append(created)
             # A created reminder is pending, so the next pass sees it exactly as
             # the real API would.

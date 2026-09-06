@@ -3,6 +3,7 @@ import { Button } from '../ui/Button';
 import { InlineConfirm } from '../ui/InlineConfirm';
 import { ScheduleForm } from './ScheduleForm';
 import type { DayOfWeek, ScheduleBlock, ScheduleBlockCreate, ScheduleBlockUpdate } from '../../types';
+import { formatTimeRange } from '../../utils/time';
 
 const DAYS: { id: DayOfWeek; label: string }[] = [
     { id: 'mon', label: 'Monday' },
@@ -88,7 +89,7 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
                                                 <p className="text-sm text-muted-foreground mt-0.5">
                                                     {block.is_flexible_block 
                                                         ? 'Flexible' 
-                                                        : `${block.start_time?.substring(0,5)} - ${block.end_time?.substring(0,5)}`}
+                                                        : formatTimeRange(block.start_time ?? '', block.end_time ?? '')}
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-2">

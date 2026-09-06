@@ -18,6 +18,8 @@ import logging
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from config import settings
+
 log = logging.getLogger(__name__)
 
 # How close to a slot's start we send. Wider than the tick interval, so a slot
@@ -30,11 +32,17 @@ LOOKAHEAD = timedelta(minutes=15)
 GRACE = timedelta(minutes=5)
 # Tolerance when matching an existing reminder to a slot.
 MATCH_WINDOW = timedelta(minutes=1)
-# How long an unanswered nudge suppresses the next one. Without this the bot
+# How long a recent nudge suppresses the next one. Without this the bot
 # re-suggests every tick: /slots/next truncates a running slot to begin "now",
 # so the start time advances with the clock and a start-keyed check never
 # matches its own previous send.
-RESEND_COOLDOWN = timedelta(minutes=60)
+RESEND_COOLDOWN = timedelta(minutes=settings.QUIET_MINUTES_AFTER_REMINDER)
+
+# Anything but "done" means leave them alone for a while. "later" especially:
+# tapping Snooze moves the reminder out of `pending`, so a pending-only check
+# would treat a deliberate "not now" as permission to ask again on the next
+# tick — punishing the one button that politely says no.
+SUPPRESSING_STATUSES = {"pending", "later", "skipped"}
 
 
 def _parse(value: str) -> datetime:
@@ -60,13 +68,46 @@ def local_now(now: datetime, timezone_name: str) -> datetime:
     return now.astimezone(tz).replace(tzinfo=None)
 
 
+def clock(value: str) -> str:
+    """'2026-09-07T17:00:00' -> '5:00 PM', matching the bot and the web app."""
+    time_part = value.split("T")[1] if "T" in value else value
+    hours_text, _, rest = time_part.partition(":")
+    try:
+        hours = int(hours_text)
+    except ValueError:
+        return value
+
+    minutes = rest[:2] or "00"
+    suffix = "AM" if hours < 12 else "PM"
+    # 0 and 12 both display as 12 — midnight is 12 AM, noon is 12 PM.
+    hour12 = 12 if hours % 12 == 0 else hours % 12
+    return f"{hour12}:{minutes} {suffix}"
+
+def duration(minutes: int) -> str:
+    """463 -> '7 hr 43 min'.
+
+    Raw minute counts stop being readable somewhere around an hour; nobody
+    converts "463 minutes" in their head while glancing at a phone.
+    """
+    try:
+        minutes = int(minutes)
+    except (TypeError, ValueError):
+        return str(minutes)
+
+    if minutes < 60:
+        return f"{minutes} min"
+
+    hours, rest = divmod(minutes, 60)
+    return f"{hours} hr" if rest == 0 else f"{hours} hr {rest} min"
+
+
 def build_message(allocation: dict, slot: dict) -> str:
     """Section 12.1's shape, minus the name — the scheduler has no display name."""
     return (
-        f"You have a free {slot['duration_minutes']}-minute slot at "
-        f"{allocation['start'].split('T')[1][:5]}.\n\n"
+        f"You have a free {duration(slot['duration_minutes'])} slot at "
+        f"{clock(allocation['start'])}.\n\n"
         f"Suggested task: {allocation['goal_name']}\n"
-        f"Estimated time: {allocation['minutes']} minutes\n\n"
+        f"Estimated time: {duration(allocation['minutes'])}\n\n"
         f"Start now?"
     )
 
@@ -78,26 +119,28 @@ def is_due(allocation_start: str, now: datetime) -> bool:
 
 
 async def recently_nudged(backend, token: str, allocation_start: str, now: datetime) -> bool:
-    """Is there already a nudge this user hasn't answered?
+    """Have we interrupted this user recently enough to leave them alone?
 
     Asking "did we send one for this exact slot?" does not work: a slot already
     underway is reported as starting "now", so its start moves with every tick
-    and each pass looks like a brand new slot. The question that actually
-    matters is whether we interrupted them recently and they have yet to reply —
-    an ignored reminder means leave them alone for a while, not try harder.
+    and each pass looks like a brand new slot.
+
+    Fetched without a status filter and judged here, because the distinction
+    that matters is not one status but "did they tell us to go away". Only
+    `done` clears the way — finishing something is a natural moment to offer
+    the next thing.
     """
     start = _parse(allocation_start)
-    existing = await backend.request_as(
+    recent = await backend.request_as(
         token,
         "GET",
         "/api/reminders/",
         params={
-            "status": "pending",
             "start": (now - RESEND_COOLDOWN).isoformat(),
             "end": (start + MATCH_WINDOW).isoformat(),
         },
     )
-    return bool(existing)
+    return any(r.get("status") in SUPPRESSING_STATUSES for r in recent or [])
 
 
 async def dispatch_for_chat(backend, sender, chat: dict, now: datetime) -> bool:

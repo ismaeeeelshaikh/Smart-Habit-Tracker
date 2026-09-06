@@ -36,19 +36,42 @@ def slot(start="2026-09-07T17:00:00", end="2026-09-07T19:00:00", minutes=120):
 
 
 class TestClock:
-    def test_trims_a_time(self):
-        assert fmt.clock("17:00:00") == "17:00"
+    """12-hour display. Midnight and noon are where these usually go wrong."""
 
-    def test_trims_a_datetime(self):
-        assert fmt.clock("2026-09-07T17:00:00") == "17:00"
+    def test_converts_an_afternoon_time(self):
+        assert fmt.clock("17:00:00") == "5:00 PM"
+
+    def test_converts_a_datetime(self):
+        assert fmt.clock("2026-09-07T17:00:00") == "5:00 PM"
+
+    def test_a_morning_hour_is_not_zero_padded(self):
+        assert fmt.clock("09:05:00") == "9:05 AM"
+
+    def test_midnight_is_twelve_am_not_zero(self):
+        assert fmt.clock("00:15:00") == "12:15 AM"
+
+    def test_noon_is_twelve_pm_not_zero(self):
+        assert fmt.clock("12:00:00") == "12:00 PM"
+
+    def test_just_before_noon_is_still_am(self):
+        assert fmt.clock("11:59:00") == "11:59 AM"
+
+    def test_just_after_noon_is_pm(self):
+        assert fmt.clock("12:01:00") == "12:01 PM"
+
+    def test_the_last_minute_of_the_day(self):
+        assert fmt.clock("23:59:00") == "11:59 PM"
+
+    def test_something_unparseable_is_passed_through_untouched(self):
+        assert fmt.clock("not a time") == "not a time"
 
 
 class TestToday:
     def test_lists_commitments_and_free_slots(self):
         text = fmt.format_today([block()], [slot()])
 
-        assert "09:00–17:00 Work" in text
-        assert "17:00–19:00 (120 min)" in text
+        assert "9:00 AM – 5:00 PM  Work" in text
+        assert "5:00 PM – 7:00 PM  (2 hr)" in text
 
     def test_an_empty_day_is_framed_as_free_not_as_missing_data(self):
         text = fmt.format_today([], [slot()])
@@ -92,7 +115,7 @@ class TestWeek:
 
 class TestFree:
     def test_lists_remaining_slots(self):
-        assert "17:00–19:00 (120 min)" in fmt.format_free([slot()])
+        assert "5:00 PM – 7:00 PM  (2 hr)" in fmt.format_free([slot()])
 
     def test_says_when_the_day_is_spent(self):
         assert fmt.format_free([]) == "No free time left today."
@@ -121,9 +144,10 @@ class TestSuggestion:
         text = fmt.format_suggestion(self.suggestion(), name="Ismaeel")
 
         assert "Hi Ismaeel 👋" in text
-        assert "free 120-minute slot" in text
+        assert "free 2 hr slot" in text
+        assert "at 5:00 PM" in text
         assert "Suggested task: Learn Spanish" in text
-        assert "Estimated time: 30 minutes" in text
+        assert "Estimated time: 30 min" in text
         assert text.rstrip().endswith("Start now?")
 
     def test_omits_the_greeting_when_there_is_no_name(self):
@@ -180,7 +204,7 @@ class TestStats:
 def test_reminder_confirmation_reads_back_what_was_set():
     text = fmt.format_reminder_confirmation("Stretch", "2026-09-10T09:00:00")
 
-    assert text == "✅ Reminder set: Stretch on 2026-09-10 at 09:00."
+    assert text == "✅ Reminder set: Stretch on 2026-09-10 at 9:00 AM."
 
 
 def test_the_unlinked_message_points_at_the_users_own_app():
@@ -193,3 +217,25 @@ def test_the_unlinked_message_points_at_the_users_own_app():
 def test_help_lists_every_command_the_spec_promises():
     for command in ("/today", "/schedule", "/free", "/next", "/add", "/done", "/skip", "/stats"):
         assert command in fmt.HELP
+
+
+class TestDuration:
+    """"463 minutes" is not something anyone converts in their head."""
+
+    def test_under_an_hour_stays_in_minutes(self):
+        assert fmt.duration(45) == "45 min"
+
+    def test_exactly_an_hour(self):
+        assert fmt.duration(60) == "1 hr"
+
+    def test_a_whole_number_of_hours_drops_the_minutes(self):
+        assert fmt.duration(120) == "2 hr"
+
+    def test_hours_and_minutes_together(self):
+        assert fmt.duration(90) == "1 hr 30 min"
+
+    def test_the_awkward_one_that_prompted_this(self):
+        assert fmt.duration(463) == "7 hr 43 min"
+
+    def test_zero_is_not_rendered_as_an_hour(self):
+        assert fmt.duration(0) == "0 min"

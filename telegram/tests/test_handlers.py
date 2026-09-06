@@ -123,8 +123,8 @@ class TestCommands:
 
         await h.today(update, make_context(backend))
 
-        assert "09:00–17:00 Work" in update.effective_message.last
-        assert "17:00–19:00 (120 min)" in update.effective_message.last
+        assert "9:00 AM – 5:00 PM  Work" in update.effective_message.last
+        assert "5:00 PM – 7:00 PM  (2 hr)" in update.effective_message.last
 
     async def test_today_ignores_other_days_commitments(self, make_context):
         backend = FakeBackend(
@@ -264,7 +264,7 @@ class TestAddConversation:
             "scheduled_time": "2026-09-10T09:00:00",
             "recurrence_rule": "none",
         }
-        assert "✅ Reminder set: Stretch on 2026-09-10 at 09:00." == final.effective_message.last
+        assert "✅ Reminder set: Stretch on 2026-09-10 at 9:00 AM." == final.effective_message.last
 
     async def test_a_bad_date_re_asks_that_step_only(self, make_context):
         context = make_context(FakeBackend())

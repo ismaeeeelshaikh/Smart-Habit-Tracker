@@ -36,9 +36,43 @@ HELP = (
 
 
 def clock(value: str) -> str:
-    """'17:00:00' or '2026-09-07T17:00:00' -> '17:00'."""
+    """'17:00:00' or '2026-09-07T17:00:00' -> '5:00 PM'.
+
+    Written out rather than handed to strftime("%I:%M %p"), which zero-pads the
+    hour to "05:00 PM" on Linux, and to keep this identical to the web app's
+    formatTime — the same slot should not read two different ways depending on
+    where you happen to be looking at it.
+    """
     time_part = value.split("T")[1] if "T" in value else value
-    return time_part[:5]
+    hours_text, _, rest = time_part.partition(":")
+    try:
+        hours = int(hours_text)
+    except ValueError:
+        return value
+
+    minutes = rest[:2] or "00"
+    suffix = "AM" if hours < 12 else "PM"
+    # 0 and 12 both display as 12 — midnight is 12 AM, noon is 12 PM.
+    hour12 = 12 if hours % 12 == 0 else hours % 12
+    return f"{hour12}:{minutes} {suffix}"
+
+
+def duration(minutes: int) -> str:
+    """463 -> '7 hr 43 min'.
+
+    Raw minute counts stop being readable somewhere around an hour; nobody
+    converts "463 minutes" in their head while glancing at a phone.
+    """
+    try:
+        minutes = int(minutes)
+    except (TypeError, ValueError):
+        return str(minutes)
+
+    if minutes < 60:
+        return f"{minutes} min"
+
+    hours, rest = divmod(minutes, 60)
+    return f"{hours} hr" if rest == 0 else f"{hours} hr {rest} min"
 
 
 def format_today(blocks: list[dict], slots: list[dict]) -> str:
@@ -53,7 +87,7 @@ def format_today(blocks: list[dict], slots: list[dict]) -> str:
                 lines.append(f"• {block['label']} (all day, {availability})")
             else:
                 lines.append(
-                    f"• {clock(block['start_time'])}–{clock(block['end_time'])} {block['label']}"
+                    f"• {clock(block['start_time'])} – {clock(block['end_time'])}  {block['label']}"
                 )
     else:
         lines.append("You have no scheduled commitments today — fully free!")
@@ -63,7 +97,7 @@ def format_today(blocks: list[dict], slots: list[dict]) -> str:
     if slots:
         lines.append("Free:")
         lines.extend(
-            f"• {clock(s['start'])}–{clock(s['end'])} ({s['duration_minutes']} min)"
+            f"• {clock(s['start'])} – {clock(s['end'])}  ({duration(s['duration_minutes'])})"
             for s in slots
         )
     else:
@@ -91,7 +125,7 @@ def format_week(blocks: list[dict], web_app: str) -> str:
                 lines.append(f"• {block['label']} (all day, {block.get('flexible_availability')})")
             else:
                 lines.append(
-                    f"• {clock(block['start_time'])}–{clock(block['end_time'])} {block['label']}"
+                    f"• {clock(block['start_time'])} – {clock(block['end_time'])}  {block['label']}"
                 )
 
     # Every block was flexible-only on days we skipped, or the list was empty.
@@ -104,7 +138,7 @@ def format_free(slots: list[dict]) -> str:
 
     lines = ["*Free time left today*", ""]
     lines.extend(
-        f"• {clock(s['start'])}–{clock(s['end'])} ({s['duration_minutes']} min)" for s in slots
+        f"• {clock(s['start'])} – {clock(s['end'])}  ({duration(s['duration_minutes'])})" for s in slots
     )
     return "\n".join(lines)
 
@@ -122,10 +156,10 @@ def format_suggestion(suggestion: dict[str, Any], name: str = "") -> str:
 
     return (
         f"{greeting}"
-        f"You have a free {slot['duration_minutes']}-minute slot "
+        f"You have a free {duration(slot['duration_minutes'])} slot "
         f"at {clock(slot['start'])}.\n\n"
         f"Suggested task: {first['goal_name']}\n"
-        f"Estimated time: {first['minutes']} minutes\n\n"
+        f"Estimated time: {duration(first['minutes'])}\n\n"
         f"Start now?"
     )
 
@@ -158,5 +192,5 @@ def format_stats(stats: dict[str, Any]) -> str:
 
 
 def format_reminder_confirmation(label: str, when: str) -> str:
-    date_part, _, time_part = when.partition("T")
-    return f"✅ Reminder set: {label} on {date_part} at {time_part[:5]}."
+    date_part, _, _ = when.partition("T")
+    return f"✅ Reminder set: {label} on {date_part} at {clock(when)}."

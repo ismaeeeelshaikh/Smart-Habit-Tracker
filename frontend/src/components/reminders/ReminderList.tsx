@@ -39,15 +39,21 @@ const StatusPill = ({ status }: { status: ReminderStatus }) => {
     );
 };
 
-/** "Tue 3 Sep, 19:00" — weekday included because reminders are time-of-day things. */
-const formatWhen = (iso: string) =>
-    new Date(iso).toLocaleString(undefined, {
+/** "Tue 3 Sep, 7:00 PM" — weekday included because reminders are time-of-day things. */
+const formatWhen = (iso: string) => {
+    const when = new Date(iso);
+    const day = when.toLocaleDateString(undefined, {
         weekday: 'short',
         day: 'numeric',
         month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
     });
+    // Built from the local hours rather than toLocaleString so the clock reads
+    // the same here as everywhere else in the app and in the bot.
+    const hours = when.getHours();
+    const suffix = hours < 12 ? 'AM' : 'PM';
+    const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+    return `${day}, ${hour12}:${String(when.getMinutes()).padStart(2, '0')} ${suffix}`;
+};
 
 const RECURRENCE_LABEL: Record<string, string> = {
     daily: 'Repeats daily',

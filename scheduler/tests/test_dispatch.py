@@ -67,8 +67,8 @@ class TestSending:
         await dispatch.dispatch_once(backend, sender, now=NOW)
 
         text = sender.sent[0]["text"]
-        assert "free 120-minute slot at 17:00" in text
-        assert "Estimated time: 30 minutes" in text
+        assert "free 2 hr slot at 5:00 PM" in text
+        assert "Estimated time: 30 min" in text
         assert text.rstrip().endswith("Start now?")
 
     async def test_the_buttons_point_at_the_reminder_it_created(self, sender):
@@ -111,7 +111,9 @@ class TestNoDuplicateFiring:
     async def test_an_existing_pending_reminder_blocks_a_send(self, sender):
         backend = FakeBackend(
             suggestion=suggestion(),
-            existing_reminders=[{"id": "already", "scheduled_time": "2026-09-07T17:00:00"}],
+            existing_reminders=[
+                {"id": "already", "scheduled_time": "2026-09-07T17:00:00", "status": "pending"}
+            ],
         )
 
         await dispatch.dispatch_once(backend, sender, now=NOW)
@@ -278,3 +280,75 @@ class TestDoesNotNag:
         await dispatch.dispatch_once(backend, sender, now=much_later)
 
         assert len(sender.sent) == 2
+
+
+class TestSnoozeIsRespected:
+    """Tapping Later must buy quiet, not invite another nudge.
+
+    Regression: the guard only looked at `pending`, and Later moves a reminder
+    out of pending — so the one button that politely says "not now" was the one
+    that got you interrupted again on the very next tick.
+    """
+
+    async def reminder_left_at(self, sender, status):
+        backend = FakeBackend(
+            suggestion=suggestion(start=NOW.isoformat()),
+            existing_reminders=[
+                {"id": "old", "scheduled_time": NOW.isoformat(), "status": status}
+            ],
+        )
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+        return sender.sent
+
+    async def test_later_stops_the_next_nudge(self, sender):
+        assert await self.reminder_left_at(sender, "later") == []
+
+    async def test_skipped_stops_the_next_nudge(self, sender):
+        assert await self.reminder_left_at(sender, "skipped") == []
+
+    async def test_ignored_stops_the_next_nudge(self, sender):
+        assert await self.reminder_left_at(sender, "pending") == []
+
+    async def test_done_does_not(self, sender):
+        """Finishing something is a natural moment to offer the next thing."""
+        assert len(await self.reminder_left_at(sender, "done")) == 1
+
+    async def test_quiet_period_ends_eventually(self, sender):
+        backend = FakeBackend(suggestion=suggestion(start=NOW.isoformat()))
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+
+        later = NOW + dispatch.RESEND_COOLDOWN + timedelta(minutes=5)
+        backend.suggestion = suggestion(start=later.isoformat())
+        await dispatch.dispatch_once(backend, sender, now=later)
+
+        assert len(sender.sent) == 2
+
+
+class TestReadableDurations:
+    """"463 minutes" is not something anyone converts in their head."""
+
+    def test_under_an_hour_stays_in_minutes(self):
+        assert dispatch.duration(45) == "45 min"
+
+    def test_a_whole_hour_drops_the_minutes(self):
+        assert dispatch.duration(120) == "2 hr"
+
+    def test_an_awkward_number_reads_as_hours_and_minutes(self):
+        assert dispatch.duration(463) == "7 hr 43 min"
+
+    async def test_the_sent_message_uses_it(self, sender):
+        backend = FakeBackend(
+            suggestion={
+                "slot": {"start": NOW.isoformat(), "end": "2026-09-07T23:00:00",
+                         "duration_minutes": 463},
+                "allocations": [{"goal_id": "g1", "goal_name": "dsa", "priority": "high",
+                                 "minutes": 90, "start": NOW.isoformat(),
+                                 "end": "2026-09-07T18:20:00"}],
+                "reason": None,
+            }
+        )
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+
+        text = sender.sent[0]["text"]
+        assert "free 7 hr 43 min slot" in text
+        assert "Estimated time: 1 hr 30 min" in text

@@ -70,8 +70,8 @@ describe('Dashboard', () => {
 
         renderWithProviders(<Dashboard />);
 
-        expect(await screen.findByText('17:00 – 22:00')).toBeInTheDocument();
-        expect(screen.getByText('300 min')).toBeInTheDocument();
+        expect(await screen.findByText('5:00 PM – 10:00 PM')).toBeInTheDocument();
+        expect(screen.getByText('5 hr')).toBeInTheDocument();
     });
 
     it('shows the fully-booked empty state without framing it as a problem', async () => {
@@ -118,7 +118,7 @@ describe('Dashboard', () => {
 
         expect(await screen.findByText('Learn React')).toBeInTheDocument();
         expect(screen.getByText('High')).toBeInTheDocument();
-        expect(screen.getByText('17:00 · 20 min')).toBeInTheDocument();
+        expect(screen.getByText('5:00 PM · 20 min')).toBeInTheDocument();
     });
 
     it('explains why there is no suggestion instead of showing a blank card', async () => {

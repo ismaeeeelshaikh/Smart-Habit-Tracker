@@ -6,6 +6,7 @@ import { WeekStrip } from '../components/WeekStrip';
 import type { DaySchedule, TimeBlock } from '../components/WeekStrip';
 import { useAuth } from '../contexts/AuthContext';
 import { getNextSuggestion, getScheduleBlocks, getTodaysFreeSlots, getWeeklyStats } from '../api';
+import { formatTime as clock, formatDuration } from '../utils/time';
 import type {
   DayOfWeek,
   NextSuggestion,
@@ -27,12 +28,6 @@ const DAYS: { id: DayOfWeek; name: string }[] = [
 const toMinutes = (hhmmss: string) => {
   const [h, m] = hhmmss.split(':').map(Number);
   return h * 60 + m;
-};
-
-/** "17:00:00" -> "17:00"; also accepts a full ISO datetime. */
-const clock = (value: string) => {
-  const timePart = value.includes('T') ? value.split('T')[1] : value;
-  return timePart.slice(0, 5);
 };
 
 const buildWeekStrip = (blocks: ScheduleBlock[]): DaySchedule[] =>
@@ -218,7 +213,7 @@ export const Dashboard = () => {
                     {clock(slot.start)} – {clock(slot.end)}
                   </span>
                   <span className="text-[13px] text-[var(--color-ink-muted)]">
-                    {slot.duration_minutes} min
+                    {formatDuration(slot.duration_minutes)}
                   </span>
                 </li>
               ))}
@@ -247,7 +242,7 @@ export const Dashboard = () => {
               {next.slot && (
                 <p className="text-[13px] text-[var(--color-ink-muted)] font-inter">
                   {clock(next.slot.start)} – {clock(next.slot.end)} ·{' '}
-                  {next.slot.duration_minutes} min free
+                  {formatDuration(next.slot.duration_minutes)} free
                 </p>
               )}
               <ul className="space-y-2">
@@ -258,7 +253,7 @@ export const Dashboard = () => {
                       {a.goal_name}
                     </span>
                     <span className="text-[13px] text-[var(--color-ink-muted)] font-mono whitespace-nowrap">
-                      {clock(a.start)} · {a.minutes} min
+                      {clock(a.start)} · {formatDuration(a.minutes)}
                     </span>
                   </li>
                 ))}

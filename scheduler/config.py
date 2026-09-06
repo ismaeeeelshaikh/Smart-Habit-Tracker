@@ -22,6 +22,9 @@ class SchedulerSettings(BaseSettings):
 
     # How often the dispatch loop scans for upcoming free slots.
     DISPATCH_INTERVAL_SECONDS: int = 300
+    # How long the bot stays quiet after a reminder the user ignored,
+    # snoozed with Later, or skipped. Only Done clears it early.
+    QUIET_MINUTES_AFTER_REMINDER: int = 60
     LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
