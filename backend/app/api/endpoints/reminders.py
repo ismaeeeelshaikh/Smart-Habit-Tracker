@@ -6,6 +6,7 @@ endpoint exists on the API now because both channels go through it — the bot's
 inline buttons in Phase 6 call exactly this route.
 """
 
+import logging
 from datetime import UTC, datetime, timedelta, tzinfo
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -21,6 +22,8 @@ from app.db.models import Goal as GoalModel
 from app.db.models import Reminder as ReminderModel
 from app.schemas.reminder import Reminder, ReminderCreate, ReminderStatusUpdate
 
+log = logging.getLogger(__name__)
+
 router = APIRouter()
 
 # How far into the past a one-off may be dated. The rule exists to stop someone
@@ -35,8 +38,14 @@ def _user_tz(user: User) -> tzinfo:
     try:
         return ZoneInfo(user.timezone)
     except (ZoneInfoNotFoundError, ValueError):
-        # Not ZoneInfo("UTC"): on a host with no IANA database that would raise
-        # the very error being handled. timezone.utc needs no database.
+        # Loud: a silent fall back to UTC shows the user wrong times forever
+        # with nothing to explain it. Not ZoneInfo("UTC") either — that raises
+        # the very error being handled on a host with no database.
+        log.warning(
+            "unresolvable timezone %r for user %s — falling back to UTC",
+            user.timezone,
+            user.id,
+        )
         return UTC
 
 

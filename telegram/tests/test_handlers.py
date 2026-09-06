@@ -254,7 +254,7 @@ class TestAddConversation:
         await h.add_start(FakeUpdate(), context)
         await h.add_label(FakeUpdate(text="Stretch"), context)
         await h.add_date(FakeUpdate(text="2026-09-10"), context)
-        await h.add_time(FakeUpdate(text="09:00"), context)
+        await h.add_time(FakeUpdate(text="9:00 AM"), context)
         final = FakeUpdate(text="none")
         await h.add_recurrence(final, context)
 
@@ -274,7 +274,7 @@ class TestAddConversation:
 
         # Same step again, not back to the beginning (Section 12.7).
         assert state == h.ASK_DATE
-        assert "YYYY-MM-DD" in update.effective_message.last
+        assert "2026-09-10" in update.effective_message.last
 
     async def test_a_bad_time_re_asks_that_step_only(self, make_context):
         context = make_context(FakeBackend())
@@ -283,7 +283,7 @@ class TestAddConversation:
         state = await h.add_time(update, context)
 
         assert state == h.ASK_TIME
-        assert "HH:MM" in update.effective_message.last
+        assert "9:30 PM" in update.effective_message.last
 
     async def test_an_unknown_recurrence_re_asks(self, make_context):
         context = make_context(FakeBackend())
@@ -387,3 +387,72 @@ def test_the_id_is_read_back_out_of_the_buttons():
     )()})()
 
     assert h.reminder_id_from_reply(message) == "abc-123"
+
+
+class TestTimeInput:
+    """/add used to demand 24-hour input while the rest of the app spoke AM/PM."""
+
+    @pytest.mark.parametrize(
+        "typed,expected",
+        [
+            ("9:30 pm", "21:30:00"),
+            ("9:30PM", "21:30:00"),
+            ("9 pm", "21:00:00"),
+            ("9pm", "21:00:00"),
+            ("7:05 a.m.", "07:05:00"),
+            # 24-hour still works — it was the documented format until now.
+            ("21:30", "21:30:00"),
+            ("09:30", "09:30:00"),
+            # The two that trip 12-hour clocks.
+            ("12:00 am", "00:00:00"),
+            ("12:00 pm", "12:00:00"),
+        ],
+    )
+    def test_accepts_how_people_actually_write_times(self, typed, expected):
+        assert h.parse_time_input(typed).strftime("%H:%M:%S") == expected
+
+    def test_rejects_something_that_is_not_a_time(self):
+        assert h.parse_time_input("banana") is None
+
+    async def test_the_step_stores_the_parsed_time(self, make_context):
+        context = make_context(FakeBackend())
+        state = await h.add_time(FakeUpdate(text="9:30 pm"), context)
+
+        assert context.user_data["time"] == "21:30:00"
+        assert state == h.ASK_RECURRENCE
+
+    async def test_an_unparseable_time_re_asks_with_an_example(self, make_context):
+        update = FakeUpdate(text="half nine")
+        state = await h.add_time(update, make_context(FakeBackend()))
+
+        assert state == h.ASK_TIME
+        assert "9:30 PM" in update.effective_message.last
+
+
+class TestDateInput:
+    def test_accepts_today(self):
+        from datetime import date
+
+        assert h.parse_date_input("today", date(2026, 9, 6)) == date(2026, 9, 6)
+
+    def test_accepts_tomorrow(self):
+        from datetime import date
+
+        assert h.parse_date_input("Tomorrow", date(2026, 9, 6)) == date(2026, 9, 7)
+
+    def test_still_accepts_an_explicit_date(self):
+        from datetime import date
+
+        assert h.parse_date_input("2026-09-10", date(2026, 9, 6)) == date(2026, 9, 10)
+
+    def test_rejects_nonsense(self):
+        from datetime import date
+
+        assert h.parse_date_input("next tuesday", date(2026, 9, 6)) is None
+
+    async def test_an_unparseable_date_re_asks(self, make_context):
+        update = FakeUpdate(text="next tuesday")
+        state = await h.add_date(update, make_context(FakeBackend()))
+
+        assert state == h.ASK_DATE
+        assert "tomorrow" in update.effective_message.last

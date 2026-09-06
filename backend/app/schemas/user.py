@@ -1,6 +1,7 @@
 import re
 import uuid
 from datetime import datetime, time
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, EmailStr, field_validator
 
@@ -17,9 +18,28 @@ def validate_password_strength(v: str) -> str:
     return v
 
 
+def validate_timezone(v: str) -> str:
+    """Reject a zone this server cannot resolve.
+
+    Storing one it cannot look up is worse than refusing it: every later lookup
+    fails, quietly falls back to UTC, and the user is shown times hours off with
+    nothing anywhere saying why.
+    """
+    try:
+        ZoneInfo(v)
+    except (ZoneInfoNotFoundError, ValueError, TypeError) as err:
+        raise ValueError(f"Unknown timezone: {v!r}") from err
+    return v
+
+
 class UserBase(BaseModel):
     email: EmailStr
     timezone: str = "UTC"
+
+    @field_validator("timezone")
+    @classmethod
+    def _validate_timezone(cls, v: str) -> str:
+        return validate_timezone(v)
 
 
 class UserCreate(UserBase):

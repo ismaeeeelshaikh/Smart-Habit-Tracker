@@ -87,3 +87,74 @@ async def test_timezone_changes_which_day_today_refers_to(auth_client):
 
 async def test_preferences_require_authentication(client):
     assert (await client.patch("/api/users/me/preferences", json={})).status_code == 401
+
+
+class TestTimezoneAliases:
+    """Regression: a real user was shown times 5.5 hours out for two days.
+
+    Browsers still report the legacy alias Asia/Calcutta, the slim base image's
+    trimmed database only carries Asia/Kolkata, so every lookup failed and fell
+    back to UTC — silently, because the fallback logged nothing and signup
+    never checked the value it stored.
+    """
+
+    async def test_the_legacy_alias_a_browser_sends_resolves(self):
+        from zoneinfo import ZoneInfo
+
+        # If this fails, tzdata is missing from the image again.
+        assert ZoneInfo("Asia/Calcutta") is not None
+        assert ZoneInfo("Asia/Kolkata") is not None
+
+    async def test_signing_up_in_that_zone_keeps_it(self, client, unique_email):
+        res = await client.post(
+            "/auth/signup",
+            json={
+                "email": unique_email(),
+                "password": "password123",
+                "timezone": "Asia/Calcutta",
+            },
+        )
+        assert res.status_code == 201, res.text
+
+        me = await client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {res.json()['access_token']}"}
+        )
+        assert me.json()["timezone"] == "Asia/Calcutta"
+
+    async def test_that_users_clock_is_not_utc(self, client, unique_email):
+        """The actual symptom: 10:21 PM local was being reported as 4:49 PM."""
+        from datetime import UTC, datetime, timedelta
+
+        res = await client.post(
+            "/auth/signup",
+            json={
+                "email": unique_email(),
+                "password": "password123",
+                "timezone": "Asia/Calcutta",
+            },
+        )
+        client.headers["Authorization"] = f"Bearer {res.json()['access_token']}"
+
+        body = (await client.get("/api/slots/free/today")).json()
+        assert body["timezone"] == "Asia/Calcutta"
+
+        # India is UTC+5:30 and never observes DST, so today's local date and
+        # the UTC date differ for 5.5 hours of every day, and the reported day
+        # must follow the user's clock rather than the server's.
+        now_utc = datetime.now(UTC)
+        expected = (now_utc + timedelta(hours=5, minutes=30)).date().isoformat()
+        assert body["date"] == expected
+
+    async def test_a_zone_the_server_cannot_resolve_is_refused_at_signup(
+        self, client, unique_email
+    ):
+        """Better a 422 now than wrong times forever."""
+        res = await client.post(
+            "/auth/signup",
+            json={
+                "email": unique_email(),
+                "password": "password123",
+                "timezone": "Mars/Olympus_Mons",
+            },
+        )
+        assert res.status_code == 422

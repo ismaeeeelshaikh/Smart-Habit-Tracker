@@ -5,6 +5,7 @@ app.services, and shape the result. All the logic lives in the services layer so
 the scheduler container can reuse it without going through HTTP.
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -33,6 +34,8 @@ from app.services import (
     upcoming_free_slots,
 )
 
+log = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -45,8 +48,16 @@ def user_now(user: User) -> datetime:
     try:
         tz = ZoneInfo(user.timezone)
     except (ZoneInfoNotFoundError, ValueError):
-        # Not ZoneInfo("UTC"): on a host with no IANA database that would raise
-        # the very error being handled. timezone.utc needs no database.
+        # Loud, because the failure is otherwise invisible: every time the user
+        # sees is silently hours out, and nothing says why. Not ZoneInfo("UTC")
+        # either — on a host with no database that raises the error being
+        # handled, while timezone.utc needs no database at all.
+        log.warning(
+            "unresolvable timezone %r for user %s — falling back to UTC; "
+            "times shown to this user will be wrong",
+            user.timezone,
+            user.id,
+        )
         tz = UTC
     return datetime.now(tz).replace(tzinfo=None)
 

@@ -7,7 +7,7 @@ result from each command in turn.
 
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
@@ -41,6 +41,41 @@ def action_keyboard(reminder_id: str) -> InlineKeyboardMarkup:
             ]
         ]
     )
+
+# Accepts what people actually type: "9:30 pm", "9pm", "21:30", "09:30".
+TIME_FORMATS = ("%I:%M %p", "%I:%M%p", "%I %p", "%I%p", "%H:%M", "%H.%M")
+
+
+def parse_time_input(raw: str) -> "datetime.time | None":
+    """Read a time the way a person writes one, or return None.
+
+    The app shows 12-hour times everywhere, so demanding 24-hour input here
+    made the one place the user types a time the only place disagreeing with
+    the rest of the product.
+    """
+    text = " ".join(raw.strip().lower().split())
+    # "9:30pm" and "9:30 p.m." are the same intent.
+    text = text.replace(".", "").replace("a m", "am").replace("p m", "pm")
+
+    for fmt_str in TIME_FORMATS:
+        try:
+            return datetime.strptime(text.upper(), fmt_str).time()
+        except ValueError:
+            continue
+    return None
+
+
+def parse_date_input(raw: str, today: "datetime.date") -> "datetime.date | None":
+    """YYYY-MM-DD, plus the two words people reach for first."""
+    text = raw.strip().lower()
+    if text == "today":
+        return today
+    if text == "tomorrow":
+        return today + timedelta(days=1)
+    try:
+        return datetime.strptime(text, "%Y-%m-%d").date()
+    except ValueError:
+        return None
 
 
 def _chat_id(update: Update) -> str:
@@ -307,33 +342,32 @@ async def add_label(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return ASK_LABEL
 
     context.user_data["label"] = label[:150]
-    await update.effective_message.reply_text("What date? Please use YYYY-MM-DD.")
+    await update.effective_message.reply_text(
+        "What date? Send today, tomorrow, or a date like 2026-09-10."
+    )
     return ASK_DATE
 
 
 async def add_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raw = (update.effective_message.text or "").strip()
-    try:
-        parsed = datetime.strptime(raw, "%Y-%m-%d").date()
-    except ValueError:
+    raw = update.effective_message.text or ""
+    parsed = parse_date_input(raw, datetime.now().date())
+    if parsed is None:
         # Re-ask this step only, rather than restarting the flow (Section 12.7).
         await update.effective_message.reply_text(
-            "I didn't understand that. Please try again in YYYY-MM-DD format."
+            "I didn't understand that. Try today, tomorrow, or a date like 2026-09-10."
         )
         return ASK_DATE
 
     context.user_data["date"] = parsed.isoformat()
-    await update.effective_message.reply_text("What time? Please use HH:MM (24-hour).")
+    await update.effective_message.reply_text("What time? For example 9:30 PM.")
     return ASK_TIME
 
 
 async def add_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raw = (update.effective_message.text or "").strip()
-    try:
-        parsed = datetime.strptime(raw, "%H:%M").time()
-    except ValueError:
+    parsed = parse_time_input(update.effective_message.text or "")
+    if parsed is None:
         await update.effective_message.reply_text(
-            "I didn't understand that. Please try again in HH:MM format."
+            "I didn't understand that. Try something like 9:30 PM or 21:30."
         )
         return ASK_TIME
 

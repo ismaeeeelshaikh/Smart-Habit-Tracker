@@ -64,6 +64,11 @@ def local_now(now: datetime, timezone_name: str) -> datetime:
     try:
         tz = ZoneInfo(timezone_name)
     except (ZoneInfoNotFoundError, ValueError):
+        log.warning(
+            "unresolvable timezone %r — falling back to UTC; this user's "
+            "reminders will fire at the wrong time",
+            timezone_name,
+        )
         tz = UTC
     return now.astimezone(tz).replace(tzinfo=None)
 
