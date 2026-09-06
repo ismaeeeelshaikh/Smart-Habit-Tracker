@@ -41,15 +41,26 @@ unchanged.** Nothing about the architecture has to be redesigned to fit a
 platform's model. That is the real argument for it: no rewrite, no lock-in, and
 a contributor can reproduce your setup exactly.
 
-The catch worth knowing up front: the free Ampere shape is **ARM64**, not x86.
-Everything here has ARM images (`python:3.11-slim`, `postgres`, `caddy`,
-`node`), so it should build — but build it once before you rely on it, because
-discovering an ARM problem after you have moved your data is a bad afternoon.
-You can check from your laptop without a server:
+One thing to know up front: the free Ampere shape is **ARM64**, not x86. All
+four images have been built for `linux/arm64` and verified, so this is checked
+rather than assumed:
+
+| Image | linux/arm64 |
+|---|---|
+| backend | builds (134 MB) |
+| telegram | builds (77 MB) |
+| scheduler | builds (105 MB) |
+| frontend | builds (22 MB) |
+
+CI builds them for ARM on every push, so it stays true. To check yourself:
 
 ```bash
-docker buildx build --platform linux/arm64 -t sht-arm-check ./backend
+docker run --privileged --rm tonistiigi/binfmt --install arm64   # once
+docker buildx build --platform linux/arm64 ./backend
 ```
+
+Build them one at a time. Two emulated ARM builds at once will exhaust a laptop
+and fail in ways that look like real incompatibilities but are not.
 
 ### Getting a hostname and HTTPS, free
 

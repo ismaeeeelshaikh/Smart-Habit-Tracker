@@ -165,3 +165,30 @@ jobs:
 
       - name: Build frontend image
         run: docker build -t time-intel-frontend ./frontend
+
+  docker-arm:
+    # The free hosting this project targets (Oracle Cloud Always Free) is ARM,
+    # and the x86 job above would not notice an ARM-only break until someone
+    # was already halfway through a deploy.
+    name: Docker images build (arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (arm64)
+        run: docker buildx build --platform linux/arm64 ./backend
+
+      - name: Build telegram image (arm64)
+        run: docker buildx build --platform linux/arm64 ./telegram
+
+      - name: Build scheduler image (arm64)
+        run: docker buildx build --platform linux/arm64 -f scheduler/Dockerfile .
+
+      - name: Build frontend image (arm64)
+        run: docker buildx build --platform linux/arm64 ./frontend
