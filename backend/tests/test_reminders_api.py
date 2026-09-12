@@ -280,3 +280,42 @@ class TestSchedulingAroundNow:
             "/api/reminders/", json={"label": "Last week", "scheduled_time": in_days(-1)}
         )
         assert res.status_code == 422
+
+
+class TestDeliveryTracking:
+    """`sent_at` is what stops the dispatcher re-sending on every tick.
+
+    `status` cannot carry it: a delivered reminder the user has not answered is
+    still, correctly, pending.
+    """
+
+    async def test_a_new_reminder_has_not_been_sent(self, auth_client):
+        assert (await add_reminder(auth_client))["sent_at"] is None
+
+    async def test_marking_it_sent_stamps_the_time(self, auth_client):
+        reminder = await add_reminder(auth_client)
+
+        res = await auth_client.post(f"/api/reminders/{reminder['id']}/sent")
+
+        assert res.status_code == 200
+        assert res.json()["sent_at"] is not None
+
+    async def test_it_stays_pending_after_delivery(self, auth_client):
+        """Delivered is not answered — the user still has to press something."""
+        reminder = await add_reminder(auth_client)
+
+        body = (await auth_client.post(f"/api/reminders/{reminder['id']}/sent")).json()
+
+        assert body["status"] == "pending"
+
+    async def test_another_users_reminder_cannot_be_stamped(self, auth_client):
+        res = await auth_client.post(
+            "/api/reminders/00000000-0000-0000-0000-000000000000/sent"
+        )
+        assert res.status_code == 404
+
+    async def test_requires_authentication(self, client):
+        res = await client.post(
+            "/api/reminders/00000000-0000-0000-0000-000000000000/sent"
+        )
+        assert res.status_code == 401

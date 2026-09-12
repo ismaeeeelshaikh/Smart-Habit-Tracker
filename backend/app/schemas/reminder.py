@@ -56,5 +56,8 @@ class Reminder(BaseModel):
     status: ReminderStatusEnum
     is_recurring: bool
     recurrence_rule: RecurrenceRuleEnum
+    # None means the dispatcher has not delivered this yet. On a recurring row
+    # it is when the last occurrence was generated.
+    sent_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -150,6 +150,28 @@ async def create_reminder(
     return db_reminder
 
 
+@router.post("/{reminder_id}/sent", response_model=Reminder)
+async def mark_reminder_sent(
+    *,
+    db: AsyncSession = Depends(get_db),
+    reminder_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+):
+    """Record that this reminder has been delivered.
+
+    Called by the dispatcher immediately after Telegram accepts the message.
+    Without it every pending reminder would go out again on the next tick,
+    because `status` stays `pending` until the user answers — which is correct,
+    and precisely why it cannot double as a delivery flag.
+    """
+    db_reminder = await _get_owned_reminder(db, reminder_id, current_user)
+    db_reminder.sent_at = datetime.now(UTC)
+
+    await db.commit()
+    await db.refresh(db_reminder)
+    return db_reminder
+
+
 @router.put("/{reminder_id}/status", response_model=Reminder)
 async def update_reminder_status(
     *,

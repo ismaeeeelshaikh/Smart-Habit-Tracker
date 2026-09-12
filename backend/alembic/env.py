@@ -31,6 +31,21 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 target_metadata = Base.metadata
 
+# Tables living in this database that this schema does not own. APScheduler
+# creates and manages its own job store here; without this filter autogenerate
+# sees a table absent from Base.metadata and proposes dropping it, which would
+# destroy every scheduled job the next time anyone ran a migration.
+NOT_OURS = {"apscheduler_jobs"}
+
+
+def include_object(object_, name, type_, reflected, compare_to):
+    if type_ == "table" and name in NOT_OURS:
+        return False
+    # An index on a table we do not own is not ours either.
+    if type_ == "index" and getattr(object_, "table", None) is not None:
+        return object_.table.name not in NOT_OURS
+    return True
+
 from app.core.config import settings
 
 
@@ -45,6 +60,7 @@ def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
     url = get_url()
     context.configure(
+        include_object=include_object,
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
@@ -55,7 +71,11 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
 
     with context.begin_transaction():
         context.run_migrations()

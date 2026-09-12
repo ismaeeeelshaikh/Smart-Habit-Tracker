@@ -165,6 +165,14 @@ class Reminder(Base):
     status = Column(Enum(ReminderStatusEnum, name='reminder_status_enum'), nullable=False, default=ReminderStatusEnum.pending)
     is_recurring = Column(Boolean, nullable=False, default=False)
     recurrence_rule = Column(Enum(RecurrenceRuleEnum, name='recurrence_rule_enum'), nullable=False, default=RecurrenceRuleEnum.none)
+    # When the dispatcher actually delivered this. NULL means "not sent yet".
+    # Not in the Backend Schema Document: without it the scheduler cannot tell a
+    # reminder it has already delivered from one still waiting, so every pending
+    # reminder would be re-sent on each five-minute tick. `status` cannot carry
+    # this — a delivered reminder the user has not answered is still, correctly,
+    # pending. On a recurring row it records when the last occurrence was
+    # generated, which is what stops one firing twice in a day.
+    sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
 

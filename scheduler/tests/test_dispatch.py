@@ -352,3 +352,184 @@ class TestReadableDurations:
         text = sender.sent[0]["text"]
         assert "free 7 hr 43 min slot" in text
         assert "Estimated time: 1 hr 30 min" in text
+
+
+class TestUserOwnRemindersAreDelivered:
+    """The gap: /add wrote a row and nothing ever sent it.
+
+    The dispatcher only ever invented suggestions from free slots, so a reminder
+    set through /add or the Reminders screen sat in the database forever while
+    the bot had already said "✅ Reminder set".
+    """
+
+    def one_off(self, when=NOW, **overrides):
+        row = {
+            "id": "own1",
+            "label": "Revise DSA",
+            "scheduled_time": when.isoformat(),
+            "status": "pending",
+            "is_recurring": False,
+            "recurrence_rule": "none",
+            "goal_id": None,
+            "sent_at": None,
+        }
+        row.update(overrides)
+        return row
+
+    async def test_a_reminder_whose_time_has_come_is_sent(self, sender):
+        backend = FakeBackend(existing_reminders=[self.one_off()])
+
+        sent = await dispatch.dispatch_once(backend, sender, now=NOW)
+
+        assert sent == 1
+        assert "Revise DSA" in sender.sent[0]["text"]
+
+    async def test_it_is_not_sent_twice(self, sender):
+        backend = FakeBackend(existing_reminders=[self.one_off()])
+
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+        await dispatch.dispatch_once(backend, sender, now=NOW + timedelta(minutes=5))
+
+        # sent_at is stamped on delivery, so the second pass skips it.
+        assert len(sender.sent) == 1
+
+    async def test_a_future_reminder_waits(self, sender):
+        backend = FakeBackend(existing_reminders=[self.one_off(NOW + timedelta(hours=3))])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+
+    async def test_a_long_missed_reminder_is_not_delivered_late(self, sender):
+        """Nobody wants "9:30 PM: revise DSA" at midnight."""
+        stale = NOW - dispatch.DELIVER_STALE_AFTER - timedelta(minutes=10)
+        backend = FakeBackend(existing_reminders=[self.one_off(stale)])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+
+    async def test_it_carries_action_buttons(self, sender):
+        backend = FakeBackend(existing_reminders=[self.one_off()])
+
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+
+        assert sender.sent[0]["reminder_id"] == "own1"
+
+    async def test_the_users_own_reminder_wins_over_a_suggestion(self, sender):
+        """An explicit "remind me at 9:30" outranks anything the allocator picked."""
+        backend = FakeBackend(
+            suggestion=suggestion(start=NOW.isoformat()),
+            existing_reminders=[self.one_off()],
+        )
+
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+
+        assert len(sender.sent) == 1
+        assert "Revise DSA" in sender.sent[0]["text"]
+        assert "Suggested task" not in sender.sent[0]["text"]
+
+
+class TestRecurringReminders:
+    """recurrence_rule was stored and then read by nothing at all."""
+
+    def template(self, rule="daily", when=NOW, **overrides):
+        row = {
+            "id": "tpl1",
+            "label": "Stretch",
+            "scheduled_time": when.isoformat(),
+            "status": "pending",
+            "is_recurring": True,
+            "recurrence_rule": rule,
+            "goal_id": None,
+            "sent_at": None,
+        }
+        row.update(overrides)
+        return row
+
+    async def test_a_daily_reminder_fires_today(self, sender):
+        backend = FakeBackend(existing_reminders=[self.template()])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1
+        assert "Stretch" in sender.sent[0]["text"]
+
+    async def test_each_occurrence_becomes_its_own_row(self, sender):
+        """The series must survive the user answering one day's reminder."""
+        backend = FakeBackend(existing_reminders=[self.template()])
+
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+
+        assert len(backend.created) == 1
+        assert backend.created[0]["label"] == "Stretch"
+        # The message points at the instance, not the template.
+        assert sender.sent[0]["reminder_id"] != "tpl1"
+
+    async def test_it_does_not_fire_twice_in_one_day(self, sender):
+        backend = FakeBackend(existing_reminders=[self.template()])
+
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+        await dispatch.dispatch_once(backend, sender, now=NOW + timedelta(minutes=5))
+
+        assert len(sender.sent) == 1
+
+    async def test_it_waits_until_its_time_of_day(self, sender):
+        later_today = NOW + timedelta(hours=4)
+        backend = FakeBackend(existing_reminders=[self.template(when=later_today)])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+
+    async def test_weekdays_rule_stays_quiet_at_the_weekend(self, sender):
+        backend = FakeBackend(existing_reminders=[self.template(rule="weekdays")])
+        saturday = datetime(2026, 9, 12, 16, 50)  # NOW's time of day, on a Saturday
+
+        assert saturday.weekday() == 5
+        assert await dispatch.dispatch_once(backend, sender, now=saturday) == 0
+
+    async def test_weekdays_rule_fires_on_a_weekday(self, sender):
+        backend = FakeBackend(existing_reminders=[self.template(rule="weekdays")])
+
+        assert NOW.weekday() < 5
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1
+
+
+class TestApiTimestampsAreNotUtcMistakenForLocal:
+    """/slots returns naive local; /reminders returns UTC. Mixing them is a bug.
+
+    Reading a reminder's UTC timestamp as though it were local would fire an
+    Asia/Kolkata user's 9:30 PM reminder at 4:00 PM — the same class of mistake
+    that already shipped once.
+    """
+
+    def test_an_aware_timestamp_is_converted(self):
+        # 16:00 UTC is 21:30 in Kolkata.
+        assert dispatch._as_local(
+            "2026-09-07T16:00:00+00:00", "Asia/Kolkata"
+        ) == datetime(2026, 9, 7, 21, 30)
+
+    def test_a_naive_timestamp_is_left_alone(self):
+        """Slot times are already this user's wall clock."""
+        assert dispatch._as_local("2026-09-07T17:00:00", "Asia/Kolkata") == datetime(
+            2026, 9, 7, 17, 0
+        )
+
+    async def test_a_kolkata_reminder_fires_at_the_right_local_time(self, sender):
+        """Stored 16:00 UTC, meaning 21:30 local — due when the user's clock says 21:30."""
+        backend = FakeBackend(
+            chats=[{"chat_id": "42", "timezone": "Asia/Kolkata"}],
+            existing_reminders=[
+                {
+                    "id": "own1",
+                    "label": "Revise DSA",
+                    "scheduled_time": "2026-09-07T16:00:00+00:00",
+                    "status": "pending",
+                    "is_recurring": False,
+                    "recurrence_rule": "none",
+                    "goal_id": None,
+                    "sent_at": None,
+                }
+            ],
+        )
+
+        # 16:01 UTC — one minute after it was due in Kolkata.
+        sent = await dispatch.dispatch_once(
+            backend, sender, now=datetime(2026, 9, 7, 16, 1, tzinfo=UTC)
+        )
+
+        assert sent == 1
+        assert "9:30 PM" in sender.sent[0]["text"]
