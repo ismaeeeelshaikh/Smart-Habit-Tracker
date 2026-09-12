@@ -21,22 +21,16 @@ found matters more than that they are done.
 - ~~**`recurrence_rule` was stored and read by nothing.**~~ Daily and weekdays
   were accepted, saved, and silently ignored. Each occurrence is now its own
   row, so answering Monday's reminder does not end the series.
+- ~~**Later and Skip did the same thing.**~~ Both recorded an action, both
+  bought an hour of quiet, and neither ever came back — so the two buttons
+  differed only in wording and in one stats counter. Later now re-dates the
+  reminder to the next free slot and clears its delivery stamp, which is what
+  brings it back. Noticed by the person using it, not by anyone reading the
+  spec it was already written in.
 
 ---
 
 ## Worth doing next
-
-### Make "Later" actually come back
-
-Today ⏳ Later buys an hour of silence and nothing more. The App Flow Document
-says it should "re-surface this task in the next detected free slot within the
-same day, or next day if none remain."
-
-The gap between those two is the difference between snoozing and dismissing. A
-user who taps Later is saying *not now*, and hearing nothing again that day
-teaches them the button means *never*.
-
-Small: the slot engine already knows the next free window.
 
 ### Learn when you actually say yes
 

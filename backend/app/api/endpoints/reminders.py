@@ -16,11 +16,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.api import deps
+from app.api.endpoints.slots import load_entries, user_now
 from app.db.database import get_db
 from app.db.models import CompletionActionEnum, CompletionLog, RecurrenceRuleEnum, ReminderStatusEnum, User
 from app.db.models import Goal as GoalModel
 from app.db.models import Reminder as ReminderModel
 from app.schemas.reminder import Reminder, ReminderCreate, ReminderStatusUpdate
+from app.services import DEFAULT_MIN_SLOT_MINUTES, next_free_slot
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +34,11 @@ router = APIRouter()
 # a free slot that is starting this minute, and a strict comparison refuses
 # those a second after the slot begins.
 CREATE_GRACE = timedelta(minutes=5)
+
+# The soonest a snooze may land. Without it, a user with an open calendar has
+# their "next free slot" start right now, so Later re-fires within minutes —
+# which is not a snooze, it is a nag with extra steps.
+SNOOZE_MIN_DELAY = timedelta(minutes=30)
 
 
 def _user_tz(user: User) -> tzinfo:
@@ -150,6 +157,41 @@ async def create_reminder(
     return db_reminder
 
 
+async def _snooze_to_next_free_slot(
+    db: AsyncSession, reminder: ReminderModel, user: User
+) -> None:
+    """Move a snoozed reminder to the user's next free window.
+
+    Clearing `sent_at` is what actually brings it back: the dispatcher delivers
+    any reminder whose time has come and which it has not sent, so re-dating the
+    row and forgetting the previous delivery is the whole mechanism.
+
+    A recurring row is left alone — its series already has a next occurrence, and
+    re-dating the template would shift every future one.
+    """
+    if reminder.is_recurring:
+        return
+
+    entries = await load_entries(db, user)
+    # Search from a little ahead rather than from now, so an empty calendar
+    # cannot hand back a slot that starts this minute.
+    slot = next_free_slot(
+        entries,
+        user_now(user) + SNOOZE_MIN_DELAY,
+        day_start=user.day_start_time,
+        day_end=user.day_end_time,
+        min_slot_minutes=DEFAULT_MIN_SLOT_MINUTES,
+    )
+    if slot is None:
+        # Nothing free within the horizon. Leaving it snoozed is honest; there
+        # is no moment to promise.
+        log.info("no free slot to snooze reminder %s into", reminder.id)
+        return
+
+    reminder.scheduled_time = _as_utc(slot.start, user)
+    reminder.sent_at = None
+
+
 @router.post("/{reminder_id}/sent", response_model=Reminder)
 async def mark_reminder_sent(
     *,
@@ -189,6 +231,13 @@ async def update_reminder_status(
     db_reminder = await _get_owned_reminder(db, reminder_id, current_user)
 
     db_reminder.status = status_in.status
+
+    # Later means "not now", not "never": the App Flow Document has it
+    # re-surfacing in the next detected free slot. Without this the button is
+    # indistinguishable from Skip, which teaches people it means "go away".
+    if status_in.status is ReminderStatusEnum.later:
+        await _snooze_to_next_free_slot(db, db_reminder, current_user)
+
     db.add(
         CompletionLog(
             reminder_id=db_reminder.id,

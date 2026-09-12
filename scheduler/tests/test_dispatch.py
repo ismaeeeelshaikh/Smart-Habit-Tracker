@@ -533,3 +533,52 @@ class TestApiTimestampsAreNotUtcMistakenForLocal:
 
         assert sent == 1
         assert "9:30 PM" in sender.sent[0]["text"]
+
+
+class TestSnoozedRemindersReturn:
+    """A snoozed reminder is re-dated and its delivery stamp cleared.
+
+    The dispatcher has to pick it up again, or Later is Skip with nicer wording.
+    """
+
+    def snoozed(self, when):
+        return {
+            "id": "snz1",
+            "label": "Read a chapter",
+            "scheduled_time": when.isoformat(),
+            "status": "later",          # badge keeps saying Later
+            "is_recurring": False,
+            "recurrence_rule": "none",
+            "goal_id": None,
+            "sent_at": None,            # cleared when snoozed
+        }
+
+    async def test_it_is_delivered_when_its_new_time_arrives(self, sender):
+        backend = FakeBackend(existing_reminders=[self.snoozed(NOW)])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1
+        assert "Read a chapter" in sender.sent[0]["text"]
+
+    async def test_it_waits_until_then(self, sender):
+        backend = FakeBackend(
+            existing_reminders=[self.snoozed(NOW + timedelta(hours=2))]
+        )
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+
+    async def test_it_is_not_delivered_twice(self, sender):
+        backend = FakeBackend(existing_reminders=[self.snoozed(NOW)])
+
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+        await dispatch.dispatch_once(backend, sender, now=NOW + timedelta(minutes=5))
+
+        assert len(sender.sent) == 1
+
+    async def test_a_skipped_reminder_never_returns(self, sender):
+        """Skip is the button that means no."""
+        skipped = self.snoozed(NOW)
+        skipped["status"] = "skipped"
+        backend = FakeBackend(existing_reminders=[skipped])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+        assert sender.sent == []

@@ -319,3 +319,112 @@ class TestDeliveryTracking:
             "/api/reminders/00000000-0000-0000-0000-000000000000/sent"
         )
         assert res.status_code == 401
+
+
+class TestLaterComesBack:
+    """Later means "not now", Skip means "not today".
+
+    Until this worked the two buttons were indistinguishable: both recorded an
+    action, both bought an hour of quiet, and neither ever returned. A Later
+    that never comes back teaches people the button means "go away".
+    """
+
+    async def add_free_day(self, client):
+        """No commitments at all, so the whole active window is free."""
+        return await add_reminder(client, label="Read a chapter")
+
+    async def test_later_moves_the_reminder_to_a_new_time(self, auth_client):
+        reminder = await self.add_free_day(auth_client)
+        original = reminder["scheduled_time"]
+
+        body = (
+            await auth_client.put(
+                f"/api/reminders/{reminder['id']}/status", json={"status": "later"}
+            )
+        ).json()
+
+        assert body["scheduled_time"] != original
+
+    async def test_later_clears_the_delivery_stamp_so_it_can_arrive_again(
+        self, auth_client
+    ):
+        reminder = await self.add_free_day(auth_client)
+        await auth_client.post(f"/api/reminders/{reminder['id']}/sent")
+
+        body = (
+            await auth_client.put(
+                f"/api/reminders/{reminder['id']}/status", json={"status": "later"}
+            )
+        ).json()
+
+        # Without this the dispatcher would consider it already delivered.
+        assert body["sent_at"] is None
+
+    async def test_the_badge_still_says_later(self, auth_client):
+        reminder = await self.add_free_day(auth_client)
+
+        body = (
+            await auth_client.put(
+                f"/api/reminders/{reminder['id']}/status", json={"status": "later"}
+            )
+        ).json()
+
+        assert body["status"] == "later"
+
+    async def test_skip_does_not_come_back(self, auth_client):
+        """The whole difference between the two buttons."""
+        reminder = await self.add_free_day(auth_client)
+        original = reminder["scheduled_time"]
+
+        body = (
+            await auth_client.put(
+                f"/api/reminders/{reminder['id']}/status", json={"status": "skipped"}
+            )
+        ).json()
+
+        assert body["scheduled_time"] == original
+        assert body["status"] == "skipped"
+
+    async def test_snoozing_is_still_recorded_as_a_snooze(self, auth_client, db_session):
+        """Stats count actions, so re-dating the row must not lose the event."""
+        reminder = await self.add_free_day(auth_client)
+
+        await auth_client.put(
+            f"/api/reminders/{reminder['id']}/status", json={"status": "later"}
+        )
+
+        result = await db_session.execute(
+            select(CompletionLog).where(CompletionLog.reminder_id == reminder["id"])
+        )
+        assert [log.action.value for log in result.scalars().all()] == ["later"]
+
+    async def test_a_recurring_series_is_not_re_dated(self, auth_client):
+        """Moving the template would shift every future occurrence."""
+        reminder = await add_reminder(
+            auth_client, recurrence_rule="daily", scheduled_time=in_days(-1)
+        )
+        original = reminder["scheduled_time"]
+
+        body = (
+            await auth_client.put(
+                f"/api/reminders/{reminder['id']}/status", json={"status": "later"}
+            )
+        ).json()
+
+        assert body["scheduled_time"] == original
+
+    async def test_a_snooze_never_lands_sooner_than_the_original(self, auth_client):
+        """An open calendar used to hand back a slot starting this minute."""
+        reminder = await add_reminder(
+            auth_client, label="Read", scheduled_time=in_days(0.02)
+        )
+
+        body = (
+            await auth_client.put(
+                f"/api/reminders/{reminder['id']}/status", json={"status": "later"}
+            )
+        ).json()
+
+        snoozed_to = datetime.fromisoformat(body["scheduled_time"])
+        # Comfortably ahead of now — a snooze that fires in two minutes is a nag.
+        assert snoozed_to > datetime.now(UTC) + timedelta(minutes=20)

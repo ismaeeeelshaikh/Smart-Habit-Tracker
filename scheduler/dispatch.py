@@ -61,6 +61,12 @@ RECURRING_CATCHUP = timedelta(minutes=10)
 # tick — punishing the one button that politely says no.
 SUPPRESSING_STATUSES = {"pending", "later", "skipped"}
 
+# Statuses a reminder can still be waiting to arrive in. "later" is here
+# because snoozing re-dates the row and clears its delivery stamp rather
+# than moving it back to pending — the badge should keep saying Later, and
+# the row is still owed to the user.
+DELIVERABLE_STATUSES = ("pending", "later")
+
 WEEKDAY_RULE = "weekdays"
 DAILY_RULE = "daily"
 
@@ -223,12 +229,16 @@ async def deliver_own_reminders(
     screen was written to the database and then never delivered — the bot said
     "Reminder set" and nothing ever arrived.
     """
-    pending = await backend.request_as(
-        token, "GET", "/api/reminders/", params={"status": "pending"}
-    )
+    owed = []
+    for reminder_status in DELIVERABLE_STATUSES:
+        rows = await backend.request_as(
+            token, "GET", "/api/reminders/", params={"status": reminder_status}
+        )
+        owed.extend(rows or [])
+
     sent = 0
 
-    for row in pending or []:
+    for row in owed:
         try:
             if row.get("is_recurring"):
                 sent += await _deliver_occurrence(
