@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from conftest import FakeBackend, FakeSender
 
 import dispatch
+from dispatch import DAYS
 
 NOW = datetime(2026, 9, 7, 16, 50)
 
@@ -582,3 +583,90 @@ class TestSnoozedRemindersReturn:
 
         assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
         assert sender.sent == []
+
+
+class TestScheduleBlockReminders:
+    """A commitment can now warn you before it starts.
+
+    Opt-in per block and off by default: a schedule is mostly a record of when
+    *not* to interrupt someone, and turning every block into an alarm would
+    undo that.
+    """
+
+    def block(self, **overrides):
+        row = {
+            "id": "b1",
+            "day_of_week": DAYS[NOW.weekday()],
+            "label": "DBMS",
+            "start_time": "17:00:00",
+            "end_time": "18:00:00",
+            "is_flexible_block": False,
+            "flexible_availability": None,
+            "remind_before_minutes": 10,
+        }
+        row.update(overrides)
+        return row
+
+    async def test_it_warns_before_the_block_starts(self, sender):
+        # 16:50 now, DBMS at 17:00, 10 minutes of warning.
+        backend = FakeBackend(blocks=[self.block()])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1
+        assert "DBMS starts at 5:00 PM" in sender.sent[0]["text"]
+
+    async def test_a_block_without_a_lead_time_stays_quiet(self, sender):
+        backend = FakeBackend(blocks=[self.block(remind_before_minutes=None)])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+
+    async def test_another_days_block_is_ignored(self, sender):
+        other_day = DAYS[(NOW.weekday() + 1) % 7]
+        backend = FakeBackend(blocks=[self.block(day_of_week=other_day)])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+
+    async def test_it_does_not_warn_twice(self, sender):
+        backend = FakeBackend(blocks=[self.block()])
+
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+        await dispatch.dispatch_once(backend, sender, now=NOW)
+
+        # The reminder row created at that minute is the record.
+        assert len(sender.sent) == 1
+
+    async def test_it_is_too_early_before_the_lead_time(self, sender):
+        backend = FakeBackend(blocks=[self.block(remind_before_minutes=5)])
+
+        # 16:50 now, DBMS 17:00, 5 minutes of warning -> due at 16:55.
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+
+    async def test_a_long_missed_warning_is_not_sent_late(self, sender):
+        """A lecture warning after the lecture began is worse than silence."""
+        backend = FakeBackend(blocks=[self.block(remind_before_minutes=120)])
+
+        # Due at 15:00; now is 16:50, far past the catch-up window.
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+
+    async def test_a_flexible_block_has_no_start_to_count_back_from(self, sender):
+        backend = FakeBackend(
+            blocks=[
+                self.block(
+                    is_flexible_block=True,
+                    start_time=None,
+                    flexible_availability="busy",
+                )
+            ]
+        )
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+
+    async def test_every_lecture_of_the_day_gets_its_own_warning(self, sender):
+        """Five lectures means five warnings — that is the point of the feature."""
+        backend = FakeBackend(
+            blocks=[
+                self.block(id="b1", label="DBMS", start_time="17:00:00"),
+                self.block(id="b2", label="OS", start_time="17:00:00"),
+            ]
+        )
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 2

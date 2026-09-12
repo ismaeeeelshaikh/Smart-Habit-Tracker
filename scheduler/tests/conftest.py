@@ -9,9 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 class FakeBackend:
     """Stands in for the REST client, recording what the job asked for."""
 
-    def __init__(self, chats=None, suggestion=None, existing_reminders=None):
+    def __init__(self, chats=None, suggestion=None, existing_reminders=None, blocks=None):
         self.chats = chats if chats is not None else [{"chat_id": "42", "timezone": "UTC"}]
         self.suggestion = suggestion or {"slot": None, "allocations": [], "reason": "none"}
+        self.blocks = blocks or []
         # Keyed by token, because the real /api/reminders is scoped to the user
         # the token belongs to — one user's reminders must not hide another's.
         self._reminders: dict[str, list[dict]] = {}
@@ -36,6 +37,8 @@ class FakeBackend:
 
         if path == "/api/slots/next":
             return self.suggestion
+        if path == "/api/schedule/":
+            return self.blocks
         if path.endswith("/sent") and method == "POST":
             target = path.split("/")[-2]
             for r in mine:

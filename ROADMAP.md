@@ -61,17 +61,15 @@ a good suggestion from a bad one against an empty calendar.
 
 ---
 
-## Phase 2 — Reminders for the schedule itself
+## ~~Phase 2 — Reminders for the schedule itself~~ ✅ done
 
-Today a schedule block only says "I am busy here". It never speaks. But if
-college starts at 9, a nudge at 8:45 is obviously useful, and the machinery to
-deliver it already exists.
+A block can now carry "remind me N minutes before". Off by default, per block,
+because a schedule is mostly a record of when *not* to interrupt someone and
+turning every block into an alarm would undo that.
 
-- An optional "remind me N minutes before" on a schedule block
-- The dispatcher already delivers anything with a time and an unset `sent_at`
-
-**Effort:** a few hours. No AI, no API key.
-**Verify:** set one for five minutes out and watch it arrive.
+This is what makes a timetable useful: every lecture gets its own warning, which
+the recurrence rules could never express — they only understand *daily* and
+*weekdays*, never "every Monday at 9".
 
 ---
 
@@ -160,21 +158,27 @@ are not data to lose casually.
 
 ---
 
-## Worth considering instead of Phase 3
+## A correction about `.ics` import
 
-**`.ics` import.** Google Calendar, university timetables and Outlook all export
-it. It is a parsing job with no API key, no rate limit, no confirmation step,
-and no chance of the model mishearing.
+An earlier version of this recommended `.ics` import over the conversational
+route: no API key, no rate limit, nothing to mishear, most of the benefit for a
+fraction of the work.
 
-It solves perhaps 80% of the same problem for perhaps 20% of the work, and it
-solves it *exactly* rather than probably.
+That advice does not apply here, and it is worth writing down why rather than
+quietly deleting it.
 
-The conversational version is better for routines that live in nobody's
-calendar — *"I'm usually home by 6:30"* — which is real, and is a genuine reason
-to build it. But if the aim is to get a real timetable in quickly, the boring
-option wins.
+`.ics` import assumes the timetable is *already in a calendar*. This one is a
+PDF. A PDF does not become calendar entries on its own — every lecture would
+have to be typed into Google Calendar by hand first, which is exactly the work
+the feature was meant to remove.
 
-Worth deciding deliberately rather than by default.
+| Where the timetable lives | What actually helps |
+|---|---|
+| Already in a calendar | `.ics` import |
+| **A PDF or an image** | **a model that can read it** |
+
+So for this project the conversational route is the right one, and `.ics` stays
+a nice-to-have for people who keep their timetable in a calendar already.
 
 ---
 

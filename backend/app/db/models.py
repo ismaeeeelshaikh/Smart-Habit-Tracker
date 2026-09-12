@@ -115,6 +115,11 @@ class ScheduleBlock(Base):
     flexible_availability = Column(
         Enum(FlexibleAvailabilityEnum, name='flexible_availability_enum'), nullable=True
     )
+    # Minutes of warning before this block starts. NULL means stay quiet, which
+    # is the default: a schedule is mostly a record of when *not* to interrupt,
+    # and a commitment only worth knowing about in advance if the user says so.
+    # Meaningless on a flexible block, which has no start time to count back from.
+    remind_before_minutes = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
 
@@ -130,6 +135,11 @@ class ScheduleBlock(Base):
             "(is_flexible_block = true AND flexible_availability IS NOT NULL) OR "
             "(is_flexible_block = false AND flexible_availability IS NULL)",
             name='chk_flexible_block_has_availability'
+        ),
+        CheckConstraint(
+            "remind_before_minutes IS NULL OR "
+            "(is_flexible_block = false AND remind_before_minutes >= 0 AND remind_before_minutes <= 1440)",
+            name='chk_reminder_lead_needs_a_start_time'
         ),
         Index('idx_schedule_blocks_user_day', user_id, day_of_week),
     )

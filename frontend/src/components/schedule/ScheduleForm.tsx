@@ -25,6 +25,9 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({ dayOfWeek, initialDa
         initialData?.flexible_availability || 'busy',
     );
 
+    const [remindBefore, setRemindBefore] = useState(
+        initialData?.remind_before_minutes?.toString() ?? '',
+    );
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,6 +60,10 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({ dayOfWeek, initialDa
                 start_time: isFlexible ? null : (startTime.length === 5 ? startTime + ':00' : startTime),
                 end_time: isFlexible ? null : (endTime.length === 5 ? endTime + ':00' : endTime),
                 flexible_availability: isFlexible ? availability : null,
+                // Blank means stay quiet, which is the default: a schedule is
+                // mostly a record of when *not* to interrupt someone.
+                remind_before_minutes:
+                    isFlexible || remindBefore === '' ? null : Number(remindBefore),
             });
         } catch (err: any) {
             setError(err.message || "Couldn't save that block. Please try again.");
@@ -147,6 +154,27 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({ dayOfWeek, initialDa
                             required={!isFlexible}
                         />
                     </div>
+                </div>
+            )}
+
+            {!isFlexible && (
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-foreground" htmlFor="remind-before">
+                        Remind me before it starts
+                    </label>
+                    <select
+                        id="remind-before"
+                        value={remindBefore}
+                        onChange={(e) => setRemindBefore(e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                        <option value="">Don't remind me</option>
+                        <option value="5">5 minutes before</option>
+                        <option value="10">10 minutes before</option>
+                        <option value="15">15 minutes before</option>
+                        <option value="30">30 minutes before</option>
+                        <option value="60">1 hour before</option>
+                    </select>
                 </div>
             )}
 

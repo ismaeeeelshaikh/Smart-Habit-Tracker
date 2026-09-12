@@ -15,6 +15,8 @@ class ScheduleBlockBase(BaseModel):
     # Required for flexible blocks, forbidden for fixed ones. Says whether a
     # no-fixed-time block means "this day is committed" or "this day is open".
     flexible_availability: FlexibleAvailabilityEnum | None = None
+    # How many minutes of warning to give before this starts. None stays quiet.
+    remind_before_minutes: int | None = Field(None, ge=0, le=1440)
 
 
 class ScheduleBlockCreate(ScheduleBlockBase):
@@ -30,6 +32,7 @@ class ScheduleBlockUpdate(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
     flexible_availability: FlexibleAvailabilityEnum | None = None
+    remind_before_minutes: int | None = Field(None, ge=0, le=1440)
 
 
 class ScheduleBlock(ScheduleBlockBase):

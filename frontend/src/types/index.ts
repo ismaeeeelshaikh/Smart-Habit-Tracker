@@ -38,6 +38,8 @@ export interface ScheduleBlock {
     start_time: string | null; // HH:MM:SS format from backend
     end_time: string | null;
     flexible_availability: FlexibleAvailability | null;
+    /** Minutes of warning before it starts. Null stays quiet, which is the default. */
+    remind_before_minutes: number | null;
 }
 
 export interface ScheduleBlockCreate {
@@ -47,6 +49,7 @@ export interface ScheduleBlockCreate {
     start_time?: string | null;
     end_time?: string | null;
     flexible_availability?: FlexibleAvailability | null;
+    remind_before_minutes?: number | null;
 }
 
 export type ScheduleBlockUpdate = Partial<ScheduleBlockCreate>;

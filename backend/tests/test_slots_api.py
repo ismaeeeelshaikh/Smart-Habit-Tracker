@@ -281,3 +281,67 @@ class TestScheduleBlockValidation:
             f"/api/schedule/{block['id']}", json={"start_time": "18:00:00"}
         )
         assert res.status_code == 400
+
+
+class TestScheduleBlockReminderLead:
+    """A block can ask to warn you before it starts. Off unless set."""
+
+    async def test_a_block_is_quiet_by_default(self, auth_client):
+        block = await add_fixed(auth_client, "mon", "DBMS", "09:00:00", "10:00:00")
+
+        assert block["remind_before_minutes"] is None
+
+    async def test_a_lead_time_can_be_set(self, auth_client):
+        res = await auth_client.post(
+            "/api/schedule/",
+            json={
+                "day_of_week": "mon",
+                "label": "DBMS",
+                "is_flexible_block": False,
+                "start_time": "09:00:00",
+                "end_time": "10:00:00",
+                "remind_before_minutes": 10,
+            },
+        )
+
+        assert res.status_code == 201, res.text
+        assert res.json()["remind_before_minutes"] == 10
+
+    async def test_it_can_be_added_later(self, auth_client):
+        block = await add_fixed(auth_client, "mon", "DBMS", "09:00:00", "10:00:00")
+
+        res = await auth_client.put(
+            f"/api/schedule/{block['id']}", json={"remind_before_minutes": 15}
+        )
+
+        assert res.json()["remind_before_minutes"] == 15
+
+    async def test_a_flexible_block_cannot_have_one(self, auth_client):
+        """There is no start time to count backwards from."""
+        res = await auth_client.post(
+            "/api/schedule/",
+            json={
+                "day_of_week": "sun",
+                "label": "Family",
+                "is_flexible_block": True,
+                "flexible_availability": "busy",
+                "remind_before_minutes": 10,
+            },
+        )
+
+        assert res.status_code in (422, 400, 500)
+
+    async def test_a_negative_lead_is_refused(self, auth_client):
+        res = await auth_client.post(
+            "/api/schedule/",
+            json={
+                "day_of_week": "mon",
+                "label": "DBMS",
+                "is_flexible_block": False,
+                "start_time": "09:00:00",
+                "end_time": "10:00:00",
+                "remind_before_minutes": -5,
+            },
+        )
+
+        assert res.status_code == 422

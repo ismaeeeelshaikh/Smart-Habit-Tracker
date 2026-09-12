@@ -70,6 +70,9 @@ DELIVERABLE_STATUSES = ("pending", "later")
 WEEKDAY_RULE = "weekdays"
 DAILY_RULE = "daily"
 
+# datetime.weekday() order, matching the day_of_week enum.
+DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
 
 def _as_local(value: str, timezone_name: str) -> datetime:
     """An API timestamp as the user's wall clock, whichever way it arrived.
@@ -304,6 +307,102 @@ async def _deliver_occurrence(
     return 1
 
 
+def block_reminder_time(block: dict, now: datetime) -> datetime | None:
+    """When today's warning for this block should go out, if it is due now.
+
+    A schedule block is a weekly pattern, so the time of day comes from the
+    block and the date from today. Returns None when the block is not today's,
+    carries no lead time, or the moment has passed by more than the catch-up
+    window — a lecture warning that arrives after the lecture started is worse
+    than silence.
+    """
+    lead = block.get("remind_before_minutes")
+    if lead is None or block.get("is_flexible_block"):
+        return None
+    if block.get("day_of_week") != DAYS[now.weekday()]:
+        return None
+
+    start_text = block.get("start_time")
+    if not start_text:
+        return None
+
+    hours, _, rest = start_text.partition(":")
+    starts_at = now.replace(
+        hour=int(hours), minute=int(rest[:2]), second=0, microsecond=0
+    )
+    remind_at = starts_at - timedelta(minutes=int(lead))
+
+    if remind_at > now:
+        return None  # still ahead
+    if now - remind_at > RECURRING_CATCHUP:
+        return None  # missed it
+    return remind_at
+
+
+def build_block_message(block: dict, starts_at: datetime) -> str:
+    """A commitment about to begin, not something the app decided for you."""
+    return (
+        f"⏰ {block['label']} starts at {clock(starts_at.isoformat())}."
+    )
+
+
+async def deliver_block_reminders(
+    backend, sender, token: str, chat_id: str, now: datetime
+) -> int:
+    """Warn about commitments that are about to start.
+
+    A schedule block existed only to say "do not interrupt me here". That is
+    still its main job — this is opt-in, per block, and off by default.
+
+    The reminder row is the record that it was sent: its time is derived the
+    same way on every tick, so an existing row at that exact minute means this
+    pass has already happened. No extra bookkeeping to drift out of sync.
+    """
+    blocks = await backend.request_as(token, "GET", "/api/schedule/")
+    sent = 0
+
+    for block in blocks or []:
+        try:
+            remind_at = block_reminder_time(block, now)
+            if remind_at is None:
+                continue
+
+            # Keyed on the block *and* the minute, not the minute alone: two
+            # lectures can start at the same time, and one must not silence the
+            # other.
+            already = await backend.request_as(
+                token,
+                "GET",
+                "/api/reminders/",
+                params={"start": remind_at.isoformat(), "end": remind_at.isoformat()},
+            )
+            if any(r.get("label") == block["label"] for r in already or []):
+                continue
+
+            hours, _, rest = block["start_time"].partition(":")
+            starts_at = now.replace(hour=int(hours), minute=int(rest[:2]))
+
+            reminder = await backend.request_as(
+                token,
+                "POST",
+                "/api/reminders/",
+                json={"label": block["label"], "scheduled_time": remind_at.isoformat()},
+            )
+            await sender.send_reminder(
+                chat_id=chat_id,
+                text=build_block_message(block, starts_at),
+                reminder_id=reminder["id"],
+            )
+            await backend.request_as(
+                token, "POST", f"/api/reminders/{reminder['id']}/sent"
+            )
+            sent += 1
+        except Exception as err:
+            log.warning("dispatch: block %s failed: %s", block.get("label"), err)
+
+    return sent
+
+
 async def recently_nudged(backend, token: str, allocation_start: str, now: datetime) -> bool:
     """Have we interrupted this user recently enough to leave them alone?
 
@@ -372,8 +471,10 @@ async def dispatch_for_chat(backend, sender, chat: dict, now: datetime) -> int:
 
     token = await backend.token_for(chat_id)
 
-    # What the user actually asked for comes first.
-    sent = await deliver_own_reminders(
+    # What the user actually asked for comes first: a lecture about to start
+    # beats anything the allocator thought of.
+    sent = await deliver_block_reminders(backend, sender, token, chat_id, now)
+    sent += await deliver_own_reminders(
         backend, sender, token, chat_id, now, timezone_name
     )
 

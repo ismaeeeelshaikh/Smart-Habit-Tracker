@@ -20,6 +20,7 @@ def validate_block_shape(
     start_time: time | None,
     end_time: time | None,
     flexible_availability: object | None,
+    remind_before_minutes: int | None = None,
 ) -> None:
     """Enforce the fixed/flexible split before it reaches the CHECK constraints.
 
@@ -30,6 +31,11 @@ def validate_block_shape(
         if start_time is not None or end_time is not None:
             raise HTTPException(
                 status_code=400, detail="Flexible blocks cannot have start or end times."
+            )
+        if remind_before_minutes is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Flexible blocks have no start time to remind you before.",
             )
         if flexible_availability is None:
             raise HTTPException(
@@ -94,6 +100,7 @@ async def create_schedule_block(
         start_time=block_in.start_time,
         end_time=block_in.end_time,
         flexible_availability=block_in.flexible_availability,
+        remind_before_minutes=block_in.remind_before_minutes,
     )
 
     db_block = ScheduleBlockModel(
@@ -104,6 +111,7 @@ async def create_schedule_block(
         end_time=block_in.end_time,
         is_flexible_block=block_in.is_flexible_block,
         flexible_availability=block_in.flexible_availability,
+        remind_before_minutes=block_in.remind_before_minutes,
     )
     db.add(db_block)
     await db.commit()
@@ -131,6 +139,9 @@ async def update_schedule_block(
         "flexible_availability": update_data.get(
             "flexible_availability", db_block.flexible_availability
         ),
+        "remind_before_minutes": update_data.get(
+            "remind_before_minutes", db_block.remind_before_minutes
+        ),
     }
     # Switching between fixed and flexible clears the fields that no longer apply,
     # so a caller flipping the toggle does not have to null them out by hand.
@@ -138,6 +149,9 @@ async def update_schedule_block(
         if merged["is_flexible"]:
             merged["start_time"] = update_data.get("start_time")
             merged["end_time"] = update_data.get("end_time")
+            # A flexible block has no start time, so a lead time is meaningless
+            # on it — dropped rather than left behind to fail a constraint.
+            merged["remind_before_minutes"] = None
         else:
             merged["flexible_availability"] = update_data.get("flexible_availability")
 
@@ -147,6 +161,7 @@ async def update_schedule_block(
     db_block.start_time = merged["start_time"]
     db_block.end_time = merged["end_time"]
     db_block.flexible_availability = merged["flexible_availability"]
+    db_block.remind_before_minutes = merged["remind_before_minutes"]
     for field in ("day_of_week", "label"):
         if field in update_data:
             setattr(db_block, field, update_data[field])
