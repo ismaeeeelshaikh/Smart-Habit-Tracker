@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     # Refresh cookie is sent over HTTPS only. Turn off for plain-http local dev.
     COOKIE_SECURE: bool = True
+    # "lax" suits local dev, where the Vite proxy makes the API same-origin.
+    # Production with the frontend and API on different sites needs "none":
+    # browsers withhold a Lax cookie from cross-site requests, so the refresh
+    # call would arrive without it and every session would end with its first
+    # access token. "none" is only accepted together with COOKIE_SECURE=true.
+    COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
 
     # --- API --------------------------------------------------------------
     API_HOST: str = "0.0.0.0"
@@ -61,6 +67,20 @@ class Settings(BaseSettings):
         if isinstance(v, str) and not v.strip().startswith("["):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
+
+    @field_validator("COOKIE_SAMESITE", mode="before")
+    @classmethod
+    def _normalise_samesite(cls, v):
+        """Accept "None" or "LAX" from an env file; the cookie wants lowercase."""
+        return v.strip().lower() if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _samesite_none_requires_secure(self) -> "Settings":
+        # Browsers reject a SameSite=None cookie that is not also Secure, so this
+        # combination would silently set no cookie at all. Refuse to start with it.
+        if self.COOKIE_SAMESITE == "none" and not self.COOKIE_SECURE:
+            raise ValueError("COOKIE_SAMESITE=none requires COOKIE_SECURE=true.")
+        return self
 
     @model_validator(mode="after")
     def _assemble_database_url(self) -> "Settings":

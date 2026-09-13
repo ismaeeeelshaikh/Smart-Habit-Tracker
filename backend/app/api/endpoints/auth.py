@@ -25,16 +25,32 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _refresh_cookie_attributes() -> dict:
+    """Attributes shared by setting and clearing the refresh cookie.
+
+    Clearing has to repeat them: a browser only replaces a cookie whose
+    attributes match, so a deletion sent without SameSite=None and Secure would
+    leave a cross-site session cookie in place after logout.
+    """
+    return {
+        "httponly": True,
+        "secure": settings.COOKIE_SECURE,
+        "samesite": settings.COOKIE_SAMESITE,
+        "path": "/",
+    }
+
+
 def _set_refresh_cookie(response: Response, raw_token: str) -> None:
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=raw_token,
-        httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite="lax",
-        path="/",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        **_refresh_cookie_attributes(),
     )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(REFRESH_COOKIE_NAME, **_refresh_cookie_attributes())
 
 
 async def _issue_refresh_token(
@@ -150,7 +166,7 @@ async def refresh_token(
             .values(revoked_at=datetime.now(UTC))
         )
         await db.commit()
-        response.delete_cookie(REFRESH_COOKIE_NAME, path="/")
+        _clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token reuse detected. All sessions revoked.",
@@ -181,7 +197,7 @@ async def logout(
             rt.revoked_at = datetime.now(UTC)
             await db.commit()
 
-    response.delete_cookie(REFRESH_COOKIE_NAME, path="/")
+    _clear_refresh_cookie(response)
     return {"detail": "Logged out successfully"}
 
 

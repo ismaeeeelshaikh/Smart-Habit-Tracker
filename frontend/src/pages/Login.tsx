@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
+import { apiUrl } from '../api';
 
 export const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -17,8 +18,9 @@ export const Login: React.FC = () => {
         setIsSubmitting(true);
 
         try {
-            const res = await fetch('/auth/login', {
+            const res = await fetch(apiUrl('/auth/login'), {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });

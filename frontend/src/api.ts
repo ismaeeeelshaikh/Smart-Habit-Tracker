@@ -19,6 +19,11 @@ import type {
     WeekFreeSlots,
 } from './types';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
+export const apiUrl = (endpoint: string) =>
+    `${API_BASE_URL}${endpoint}`;
+
 let accessToken: string | null = null;
 // Set by AuthContext so a failed silent refresh can tear the session down.
 let onSessionExpired: (() => void) | null = null;
@@ -59,7 +64,10 @@ const readErrorDetail = async (res: Response, fallback: string): Promise<string>
 
 const requestRefresh = async (): Promise<boolean> => {
     try {
-        const res = await fetch('/auth/refresh', { method: 'POST' });
+        const res = await fetch(apiUrl('/auth/refresh'), {
+            method: 'POST',
+            credentials: 'include',
+        });
         if (!res.ok) return false;
         const data = await res.json();
         setAccessToken(data.access_token);
@@ -85,7 +93,11 @@ export const apiFetch = async (
         return headers;
     };
 
-    const response = await fetch(endpoint, { ...options, headers: buildHeaders() });
+    const response = await fetch(apiUrl(endpoint), {
+        ...options,
+        headers: buildHeaders(),
+        credentials: 'include',
+    });
 
     if (response.status === 401 && retry) {
         if (await requestRefresh()) {

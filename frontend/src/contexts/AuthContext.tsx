@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { getMe, setAccessToken, setSessionExpiredHandler } from '../api';
+import { apiUrl, getMe, setAccessToken, setSessionExpiredHandler } from '../api';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -49,7 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const logout = useCallback(async () => {
         try {
-            await fetch('/auth/logout', { method: 'POST' });
+            await fetch(apiUrl('/auth/logout'), {
+                method: 'POST',
+                credentials: 'include',
+            });
         } catch {
             // Network failure still clears local state — the cookie expires anyway.
         }
@@ -65,7 +68,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         const silentRefresh = async () => {
             try {
-                const res = await fetch('/auth/refresh', { method: 'POST' });
+                const res = await fetch(apiUrl('/auth/refresh'), {
+                    method: 'POST',
+                    credentials: 'include',
+                });
                 if (res.ok) {
                     const data = await res.json();
                     setAccessToken(data.access_token);

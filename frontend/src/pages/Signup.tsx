@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
+import { apiUrl } from '../api';
 
 export const Signup: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -66,8 +67,9 @@ export const Signup: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const res = await fetch('/auth/signup', {
+            const res = await fetch(apiUrl('/auth/signup'), {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password, timezone })
             });
