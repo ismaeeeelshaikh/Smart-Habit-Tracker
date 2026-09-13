@@ -345,3 +345,18 @@ class TestScheduleBlockReminderLead:
         )
 
         assert res.status_code == 422
+
+    async def test_the_dispatcher_can_stamp_a_warning_as_sent(self, auth_client):
+        block = await add_fixed(auth_client, "mon", "DBMS", "09:00:00", "10:00:00")
+        assert block["last_reminded_at"] is None
+
+        res = await auth_client.post(f"/api/schedule/{block['id']}/reminded")
+
+        assert res.status_code == 200
+        assert res.json()["last_reminded_at"] is not None
+
+    async def test_another_users_block_cannot_be_stamped(self, auth_client):
+        res = await auth_client.post(
+            "/api/schedule/00000000-0000-0000-0000-000000000000/reminded"
+        )
+        assert res.status_code == 404

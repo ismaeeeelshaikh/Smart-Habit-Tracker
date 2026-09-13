@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import UTC, datetime, time
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -166,6 +166,21 @@ async def update_schedule_block(
         if field in update_data:
             setattr(db_block, field, update_data[field])
 
+    await db.commit()
+    await db.refresh(db_block)
+    return db_block
+
+
+@router.post("/{block_id}/reminded", response_model=ScheduleBlock)
+async def mark_block_reminded(
+    *,
+    db: AsyncSession = Depends(get_db),
+    block_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+):
+    """Record that today's warning for this block has gone out."""
+    db_block = await _get_owned_block(db, block_id, current_user)
+    db_block.last_reminded_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(db_block)
     return db_block

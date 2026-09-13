@@ -346,17 +346,24 @@ def build_block_message(block: dict, starts_at: datetime) -> str:
     )
 
 
+def reminded_today(block: dict, now: datetime, timezone_name: str) -> bool:
+    """Has this block already warned its owner on today's date?"""
+    stamp = block.get("last_reminded_at")
+    if not stamp:
+        return False
+    return local_now(datetime.fromisoformat(stamp), timezone_name).date() == now.date()
+
+
 async def deliver_block_reminders(
-    backend, sender, token: str, chat_id: str, now: datetime
+    backend, sender, token: str, chat_id: str, now: datetime, timezone_name: str = "UTC"
 ) -> int:
     """Warn about commitments that are about to start.
 
-    A schedule block existed only to say "do not interrupt me here". That is
-    still its main job — this is opt-in, per block, and off by default.
-
-    The reminder row is the record that it was sent: its time is derived the
-    same way on every tick, so an existing row at that exact minute means this
-    pass has already happened. No extra bookkeeping to drift out of sync.
+    Sent as a plain notice, not a reminder. A lecture is not a habit: it has no
+    Done to press, a Later that moved it to the evening would be nonsense, and a
+    row per lecture would bury the Reminders screen under forty entries a week.
+    The block records when it last warned instead, which is all "already sent
+    today" needs.
     """
     blocks = await backend.request_as(token, "GET", "/api/schedule/")
     sent = 0
@@ -364,37 +371,18 @@ async def deliver_block_reminders(
     for block in blocks or []:
         try:
             remind_at = block_reminder_time(block, now)
-            if remind_at is None:
-                continue
-
-            # Keyed on the block *and* the minute, not the minute alone: two
-            # lectures can start at the same time, and one must not silence the
-            # other.
-            already = await backend.request_as(
-                token,
-                "GET",
-                "/api/reminders/",
-                params={"start": remind_at.isoformat(), "end": remind_at.isoformat()},
-            )
-            if any(r.get("label") == block["label"] for r in already or []):
+            if remind_at is None or reminded_today(block, now, timezone_name):
                 continue
 
             hours, _, rest = block["start_time"].partition(":")
             starts_at = now.replace(hour=int(hours), minute=int(rest[:2]))
 
-            reminder = await backend.request_as(
-                token,
-                "POST",
-                "/api/reminders/",
-                json={"label": block["label"], "scheduled_time": remind_at.isoformat()},
+            await sender.send_notice(
+                chat_id=chat_id, text=build_block_message(block, starts_at)
             )
-            await sender.send_reminder(
-                chat_id=chat_id,
-                text=build_block_message(block, starts_at),
-                reminder_id=reminder["id"],
-            )
+            # Stamped only after Telegram accepted it, so a failed send retries.
             await backend.request_as(
-                token, "POST", f"/api/reminders/{reminder['id']}/sent"
+                token, "POST", f"/api/schedule/{block['id']}/reminded"
             )
             sent += 1
         except Exception as err:
@@ -473,17 +461,21 @@ async def dispatch_for_chat(backend, sender, chat: dict, now: datetime) -> int:
 
     # What the user actually asked for comes first: a lecture about to start
     # beats anything the allocator thought of.
-    sent = await deliver_block_reminders(backend, sender, token, chat_id, now)
-    sent += await deliver_own_reminders(
+    notices = await deliver_block_reminders(
+        backend, sender, token, chat_id, now, timezone_name
+    )
+    sent = await deliver_own_reminders(
         backend, sender, token, chat_id, now, timezone_name
     )
 
     # A suggestion on top of a reminder we just sent is two interruptions in one
     # minute, so it waits for a quieter tick.
     if sent:
-        return sent
+        return notices + sent
 
-    return await suggest_for_chat(backend, sender, token, chat_id, now, timezone_name)
+    return notices + await suggest_for_chat(
+        backend, sender, token, chat_id, now, timezone_name
+    )
 
 
 async def dispatch_once(backend, sender, now: datetime | None = None) -> int:

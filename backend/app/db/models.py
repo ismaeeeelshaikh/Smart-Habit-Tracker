@@ -120,6 +120,11 @@ class ScheduleBlock(Base):
     # and a commitment only worth knowing about in advance if the user says so.
     # Meaningless on a flexible block, which has no start time to count back from.
     remind_before_minutes = Column(Integer, nullable=True)
+    # When the dispatcher last sent this block's warning. A block is a weekly
+    # pattern, so "already warned today" is a question about this date, and the
+    # warning is a notice rather than a reminder — it must not become a
+    # Done/Later/Skip row that fills the Reminders screen with every lecture.
+    last_reminded_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
 

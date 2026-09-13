@@ -20,8 +20,9 @@ class SchedulerSettings(BaseSettings):
     # rather than routing through the bot container.
     TELEGRAM_BOT_TOKEN: str = ""
 
-    # How often the dispatch loop scans for upcoming free slots.
-    DISPATCH_INTERVAL_SECONDS: int = 300
+    # How often the dispatch loop runs. Also the worst-case lateness of an
+    # "on time" lecture warning, which is why it is a minute and not five.
+    DISPATCH_INTERVAL_SECONDS: int = 60
     # How long the bot stays quiet after a reminder the user ignored,
     # snoozed with Later, or skipped. Only Done clears it early.
     QUIET_MINUTES_AFTER_REMINDER: int = 60

@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import datetime, time
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -38,5 +38,7 @@ class ScheduleBlockUpdate(BaseModel):
 class ScheduleBlock(ScheduleBlockBase):
     id: UUID
     user_id: UUID
+    # Set by the dispatcher, never by a client.
+    last_reminded_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)

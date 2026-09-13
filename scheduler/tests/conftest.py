@@ -13,6 +13,7 @@ class FakeBackend:
         self.chats = chats if chats is not None else [{"chat_id": "42", "timezone": "UTC"}]
         self.suggestion = suggestion or {"slot": None, "allocations": [], "reason": "none"}
         self.blocks = blocks or []
+        self.reminded: list[str] = []
         # Keyed by token, because the real /api/reminders is scoped to the user
         # the token belongs to — one user's reminders must not hide another's.
         self._reminders: dict[str, list[dict]] = {}
@@ -39,6 +40,13 @@ class FakeBackend:
             return self.suggestion
         if path == "/api/schedule/":
             return self.blocks
+        if path.startswith("/api/schedule/") and path.endswith("/reminded"):
+            target = path.split("/")[-2]
+            for b in self.blocks:
+                if b["id"] == target:
+                    b["last_reminded_at"] = "2026-09-07T12:00:00+00:00"
+                    self.reminded.append(target)
+            return {}
         if path.endswith("/sent") and method == "POST":
             target = path.split("/")[-2]
             for r in mine:
@@ -69,7 +77,13 @@ class FakeBackend:
 class FakeSender:
     def __init__(self, fail=False):
         self.sent: list[dict] = []
+        self.notices: list[dict] = []
         self.fail = fail
+
+    async def send_notice(self, chat_id, text):
+        if self.fail:
+            raise RuntimeError("telegram down")
+        self.notices.append({"chat_id": chat_id, "text": text})
 
     async def send_reminder(self, chat_id, text, reminder_id):
         if self.fail:

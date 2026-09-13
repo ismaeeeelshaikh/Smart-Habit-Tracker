@@ -83,6 +83,20 @@ class TelegramSender:
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    async def send_notice(self, chat_id: str, text: str) -> None:
+        """A message with nothing to answer — "your lecture is starting".
+
+        No Done / Later / Skip: tapping Later on a lecture would move the
+        lecture to the evening, and Done would count attending class as a
+        habit completed.
+        """
+        res = await self._client.post(
+            f"/bot{self._token}/sendMessage",
+            json={"chat_id": chat_id, "text": text},
+        )
+        if res.status_code >= 400:
+            raise BackendError(f"telegram sendMessage failed: {res.text[:200]}")
+
     async def send_reminder(self, chat_id: str, text: str, reminder_id: str) -> None:
         keyboard = {
             "inline_keyboard": [
