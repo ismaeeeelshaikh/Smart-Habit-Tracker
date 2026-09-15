@@ -49,3 +49,11 @@ class LinkedChatOut(BaseModel):
 
     chat_id: str
     timezone: str
+
+
+class DispatchOut(BaseModel):
+    """What one tick of POST /internal/dispatch did."""
+
+    # False when another pass already held the lock and this tick stood down.
+    ran: bool
+    sent: int

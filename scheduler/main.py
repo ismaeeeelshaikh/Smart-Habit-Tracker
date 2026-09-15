@@ -1,24 +1,24 @@
-"""APScheduler worker.
+"""Local stand-in for the production cron trigger.
 
-Runs as its own container so job execution is owned by exactly one process even
-if the API is scaled horizontally (TRD Section 3 / Decision #3). The job store is
-Postgres-backed, so pending jobs survive a restart.
+The reminder loop lives in the API (POST /internal/dispatch), because on a free
+host a separate always-on worker would cost a second service's worth of hours.
+In production a Cloudflare cron trigger calls that endpoint once a minute; this
+container does the same for `docker compose up`, so local behaviour matches.
 
-Phase 6 wires the real dispatch job in; for now the process starts, registers a
-heartbeat, and stays up.
+The endpoint holds the lock that keeps two passes from overlapping, so this
+process owns no reminder logic and nothing it does can send a message twice.
 """
 
 import asyncio
 import logging
 import signal
 
+import httpx
 from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from backend_client import BackendClient, TelegramSender
 from config import settings
-from dispatch import dispatch_once
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -26,16 +26,32 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+# A pass makes several API and Telegram calls per linked chat.
+TICK_TIMEOUT_SECONDS = 50
 
-async def run_dispatch() -> None:
-    """One dispatch pass. Clients are per-run so a dead connection can't persist."""
-    backend = BackendClient()
-    sender = TelegramSender()
+
+async def run_dispatch(transport: httpx.AsyncBaseTransport | None = None) -> None:
+    """Ask the API to run one pass. A failed tick is logged, never fatal."""
     try:
-        await dispatch_once(backend, sender)
-    finally:
-        await backend.aclose()
-        await sender.aclose()
+        async with httpx.AsyncClient(
+            base_url=settings.BACKEND_API_URL.rstrip("/"),
+            timeout=TICK_TIMEOUT_SECONDS,
+            transport=transport,
+        ) as client:
+            res = await client.post(
+                "/internal/dispatch", headers={"X-Internal-Key": settings.INTERNAL_API_KEY}
+            )
+    except httpx.HTTPError as err:
+        log.warning("dispatch: could not reach the API: %s", err)
+        return
+
+    if res.status_code != 200:
+        log.warning("dispatch: API answered %s: %s", res.status_code, res.text[:200])
+        return
+
+    body = res.json()
+    if body.get("sent"):
+        log.info("dispatch: sent %s reminder(s)", body["sent"])
 
 
 def build_scheduler() -> AsyncIOScheduler:

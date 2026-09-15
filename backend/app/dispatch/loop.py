@@ -1,7 +1,9 @@
 """The reminder loop.
 
-Runs in its own container so exactly one process owns job execution even if the
-API is scaled out (TRD Section 3 / Decision #3).
+One pass runs each time something calls POST /internal/dispatch — a Cloudflare
+cron trigger in production, the scheduler container locally. A Postgres
+advisory lock in that endpoint keeps exactly one pass running at a time, even if
+two ticks or two API instances overlap (TRD Section 3 / Decision #3).
 
 Two different things get delivered here, in this order:
 
@@ -14,8 +16,8 @@ Two different things get delivered here, in this order:
 Duplicate sends are guarded on several levels, because a bot that nags twice is
 worse than one that occasionally stays quiet:
 
-* APScheduler runs this with max_instances=1 and coalesce=True, so two ticks
-  never overlap and a backlog collapses into one run.
+* The endpoint takes an advisory lock, so two ticks never overlap; a tick that
+  finds a pass already running is skipped rather than queued.
 * A delivered reminder gets `sent_at` stamped, so it is never sent again.
   `status` cannot carry that — a delivered reminder the user has not answered is
   still, correctly, pending.
@@ -29,7 +31,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from config import settings
+from app.core.config import settings
 
 log = logging.getLogger(__name__)
 

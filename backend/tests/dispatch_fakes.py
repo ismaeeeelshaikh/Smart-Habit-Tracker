@@ -1,9 +1,4 @@
-import sys
-from pathlib import Path
-
-import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+"""In-memory stand-ins for the dispatch loop's API and Telegram clients."""
 
 
 class FakeBackend:
@@ -89,8 +84,3 @@ class FakeSender:
         if self.fail:
             raise RuntimeError("telegram down")
         self.sent.append({"chat_id": chat_id, "text": text, "reminder_id": reminder_id})
-
-
-@pytest.fixture
-def sender():
-    return FakeSender()

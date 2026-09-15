@@ -54,6 +54,15 @@ class Settings(BaseSettings):
     # 10 minutes per App Flow Document Section 4.3 ("Code expired (>10 min unused)").
     TELEGRAM_LINK_CODE_TTL_MINUTES: int = 10
 
+    # --- Dispatch ---------------------------------------------------------
+    # How long the bot stays quiet after a reminder the user ignored,
+    # snoozed with Later, or skipped. Only Done clears it early.
+    QUIET_MINUTES_AFTER_REMINDER: int = 60
+    # Where a dispatch pass reaches this API. Blank means this same process over
+    # loopback, which is right whenever the pass runs inside the API — as it
+    # does in production. Only set it if the API is not listening on API_PORT.
+    DISPATCH_API_URL: str = ""
+
     model_config = SettingsConfigDict(
         env_file=str(REPO_ROOT / ".env"),
         env_file_encoding="utf-8",
@@ -90,6 +99,10 @@ class Settings(BaseSettings):
                 f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
             )
         return self
+
+    @property
+    def dispatch_api_url(self) -> str:
+        return self.DISPATCH_API_URL or f"http://127.0.0.1:{self.API_PORT}"
 
     @property
     def ALGORITHM(self) -> str:

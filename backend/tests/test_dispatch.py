@@ -7,10 +7,17 @@ so most of this file is about a reminder going out exactly once.
 
 from datetime import UTC, datetime, timedelta
 
-from conftest import FakeBackend, FakeSender
+import pytest
+from dispatch_fakes import FakeBackend, FakeSender
 
-import dispatch
-from dispatch import DAYS
+import app.dispatch.loop as dispatch
+from app.dispatch.loop import DAYS
+
+
+@pytest.fixture
+def sender():
+    return FakeSender()
+
 
 NOW = datetime(2026, 9, 7, 16, 50)
 

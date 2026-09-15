@@ -8,18 +8,22 @@ They are not part of the public API surface and are never called by the browser.
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.api import deps
+from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.database import get_db
 from app.db.models import TelegramLinkCode, User
+from app.dispatch import runner
 from app.schemas.telegram import (
     ChatTokenIn,
     ChatTokenOut,
     ConsumeLinkCodeIn,
     ConsumeLinkCodeOut,
+    DispatchOut,
     LinkedChatOut,
     LinkStatusOut,
 )
@@ -32,6 +36,37 @@ CHAT_TOKEN_TTL_MINUTES = 5
 # Deliberately identical for a bad code and an expired one: the bot shouldn't
 # help someone guess which of the two they hit.
 BAD_CODE = "That code isn't valid or has expired. Generate a fresh one in the app and try again."
+
+# Any fixed number works; it only has to be the same for every caller.
+DISPATCH_LOCK_KEY = 7_310_442_918
+
+
+@router.post("/dispatch", response_model=DispatchOut)
+async def dispatch(db: AsyncSession = Depends(get_db)):
+    """Run one pass of the reminder loop.
+
+    Called once a minute by a Cloudflare cron trigger in production and by the
+    scheduler container locally. Those ticks can overlap — a slow pass, a
+    retried request, or the old and new instance both serving during a deploy —
+    and two passes at once could both see a reminder as unsent and deliver it
+    twice. A transaction-scoped advisory lock rules that out. The transaction
+    stays open for the whole pass and ends when get_db closes the session with
+    the request, so the lock is released even if the pass crashes. The
+    transaction form also survives a pooled connection such as Neon's, where a
+    session-scoped lock could be released on a different server connection.
+    """
+    if not settings.TELEGRAM_BOT_TOKEN:
+        # Every send would fail; say so loudly instead of logging a warning per
+        # chat every minute behind a 200.
+        raise HTTPException(status_code=503, detail="TELEGRAM_BOT_TOKEN is not set")
+
+    acquired = await db.scalar(
+        text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": DISPATCH_LOCK_KEY}
+    )
+    if not acquired:
+        return DispatchOut(ran=False, sent=0)
+
+    return DispatchOut(ran=True, sent=await runner.run_pass())
 
 
 @router.post("/telegram/consume-code", response_model=ConsumeLinkCodeOut)

@@ -1,0 +1,19 @@
+// Cron Worker that calls the API's reminder loop once a minute.
+// Deploy from this directory with `npx wrangler deploy`, then set the key:
+//   npx wrangler secret put INTERNAL_API_KEY     (same value as the API's)
+{
+    "name": "smart-habit-tracker-dispatch",
+    "main": "src/index.js",
+    "compatibility_date": "2026-09-01",
+    // No public route: this Worker only ever runs on its schedule.
+    "workers_dev": false,
+    "triggers": {
+        "crons": ["* * * * *"]
+    },
+    "vars": {
+        "DISPATCH_URL": "https://smart-habit-tracker-api-er15.onrender.com/internal/dispatch"
+    },
+    "observability": {
+        "enabled": true
+    }
+}

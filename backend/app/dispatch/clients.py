@@ -1,8 +1,9 @@
 """Backend and Telegram access for the dispatch job.
 
-Like the bot, the scheduler owns no business logic: it swaps a chat id for a
-short-lived user token and then calls the ordinary /api routes, so slot
-computation and allocation exist in exactly one implementation.
+The dispatch pass runs inside the API process but still goes through the API
+over HTTP, the way the bot does: it swaps a chat id for a short-lived user token
+and then calls the ordinary /api routes, so ownership scoping, slot computation
+and allocation exist in exactly one implementation.
 """
 
 import logging
@@ -10,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from config import settings
+from app.core.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class BackendError(Exception):
 class BackendClient:
     def __init__(self, base_url: str | None = None) -> None:
         self._client = httpx.AsyncClient(
-            base_url=(base_url or settings.BACKEND_API_URL).rstrip("/"), timeout=10.0
+            base_url=(base_url or settings.dispatch_api_url).rstrip("/"), timeout=10.0
         )
 
     async def aclose(self) -> None:
@@ -72,8 +73,8 @@ class BackendClient:
 class TelegramSender:
     """Sends the proactive reminder.
 
-    The Bot API is stateless HTTP, so the scheduler talks to it directly rather
-    than routing through the bot container — one less hop to be down.
+    The Bot API is stateless HTTP, so the dispatch pass talks to it directly
+    rather than routing through the bot service — one less hop to be down.
     """
 
     def __init__(self, token: str | None = None) -> None:

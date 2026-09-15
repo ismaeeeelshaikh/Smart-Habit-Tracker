@@ -16,16 +16,10 @@ class SchedulerSettings(BaseSettings):
 
     BACKEND_API_URL: str = "http://backend:8000"
     INTERNAL_API_KEY: str = "dev_internal_key_only"
-    # The Bot API is stateless HTTP, so the dispatch job sends reminders itself
-    # rather than routing through the bot container.
-    TELEGRAM_BOT_TOKEN: str = ""
 
-    # How often the dispatch loop runs. Also the worst-case lateness of an
-    # "on time" lecture warning, which is why it is a minute and not five.
+    # How often the dispatch endpoint is called. Also the worst-case lateness of
+    # an "on time" lecture warning, which is why it is a minute and not five.
     DISPATCH_INTERVAL_SECONDS: int = 60
-    # How long the bot stays quiet after a reminder the user ignored,
-    # snoozed with Later, or skipped. Only Done clears it early.
-    QUIET_MINUTES_AFTER_REMINDER: int = 60
     LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
