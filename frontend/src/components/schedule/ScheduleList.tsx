@@ -24,7 +24,15 @@ interface ScheduleListProps {
 
 export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, onEditBlock, onDeleteBlock }) => {
     const [addingDay, setAddingDay] = useState<DayOfWeek | null>(null);
+    // 'day' opens the same form with no clock: it marks the whole day instead.
+    const [addingMode, setAddingMode] = useState<'block' | 'day'>('block');
     const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+
+    const startAdding = (day: DayOfWeek, mode: 'block' | 'day') => {
+        setAddingDay(day);
+        setAddingMode(mode);
+        setEditingBlockId(null);
+    };
 
     const handleAddSubmit = async (day: DayOfWeek, data: ScheduleBlockCreate | ScheduleBlockUpdate) => {
         await onAddBlock(day, data as ScheduleBlockCreate);
@@ -54,16 +62,22 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
                     <div key={day.id} className="border border-border rounded-lg bg-card overflow-hidden">
                         <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border">
                             <h3 className="font-semibold text-lg">{day.label}</h3>
-                            <Button 
-                                variant="secondary" 
-                                className="text-sm px-3 py-1.5 h-auto"
-                                onClick={() => {
-                                    setAddingDay(day.id);
-                                    setEditingBlockId(null);
-                                }}
-                            >
-                                Add block
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="secondary"
+                                    className="text-sm px-3 py-1.5 h-auto"
+                                    onClick={() => startAdding(day.id, 'block')}
+                                >
+                                    Add block
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    className="text-sm px-3 py-1.5 h-auto"
+                                    onClick={() => startAdding(day.id, 'day')}
+                                >
+                                    Mark whole day
+                                </Button>
+                            </div>
                         </div>
                         
                         <div className="p-4 flex flex-col gap-3">
@@ -87,9 +101,14 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
                                             <div>
                                                 <p className="font-medium">{block.label}</p>
                                                 <p className="text-sm text-muted-foreground mt-0.5">
-                                                    {block.is_flexible_block 
-                                                        ? 'Flexible' 
+                                                    {block.is_flexible_block
+                                                        ? block.flexible_availability === 'free'
+                                                            ? 'Whole day — mostly free'
+                                                            : 'Whole day — committed'
                                                         : formatTimeRange(block.start_time ?? '', block.end_time ?? '')}
+                                                    {!block.is_flexible_block && block.remind_before_minutes != null && (
+                                                        <span> · reminder {block.remind_before_minutes} min before</span>
+                                                    )}
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -121,6 +140,7 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
                             {addingDay === day.id && (
                                 <ScheduleForm
                                     dayOfWeek={day.id}
+                                    mode={addingMode}
                                     onSubmit={(data) => handleAddSubmit(day.id, data)}
                                     onCancel={() => setAddingDay(null)}
                                 />
