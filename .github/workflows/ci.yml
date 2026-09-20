@@ -60,34 +60,6 @@ jobs:
       - name: Tests
         run: pytest -q --cov=app --cov-report=term-missing
 
-  telegram:
-    name: Telegram bot (lint + tests)
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: telegram
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: telegram/requirements-dev.txt
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-
-      - name: Lint (ruff)
-        run: ruff check .
-
-      - name: Tests
-        run: pytest -q
-
   scheduler:
     name: Scheduler (lint + tests)
     runs-on: ubuntu-latest
@@ -157,9 +129,6 @@ jobs:
       - name: Build backend image
         run: docker build -t time-intel-backend ./backend
 
-      - name: Build telegram image
-        run: docker build -t time-intel-telegram ./telegram
-
       - name: Build scheduler image
         run: docker build -f scheduler/Dockerfile -t time-intel-scheduler .
 
@@ -183,9 +152,6 @@ jobs:
 
       - name: Build backend image (arm64)
         run: docker buildx build --platform linux/arm64 ./backend
-
-      - name: Build telegram image (arm64)
-        run: docker buildx build --platform linux/arm64 ./telegram
 
       - name: Build scheduler image (arm64)
         run: docker buildx build --platform linux/arm64 -f scheduler/Dockerfile .

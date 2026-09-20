@@ -40,22 +40,6 @@ services:
       retries: 5
       start_period: 20s
 
-  telegram:
-    build:
-      context: ./telegram
-      dockerfile: Dockerfile
-    container_name: time_intel_telegram
-    depends_on:
-      backend:
-        condition: service_started
-    env_file:
-      - .env
-    environment:
-      BACKEND_API_URL: http://backend:8000
-    ports:
-      - "8080:8080"
-    restart: unless-stopped
-
   scheduler:
     build:
       # Repo-root context: the scheduler imports the shared, pure-function

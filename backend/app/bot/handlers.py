@@ -13,9 +13,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes, ConversationHandler
 
-import formatting as fmt
-from api_client import BackendError, NotLinked
-from config import settings
+from app.bot import formatting as fmt
+from app.bot.client import BackendError, NotLinked
+from app.core.config import settings
 
 log = logging.getLogger(__name__)
 

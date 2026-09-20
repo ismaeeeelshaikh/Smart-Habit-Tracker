@@ -11,10 +11,9 @@
 {$DOMAIN} {
 	encode gzip
 
-	# The bot's webhook. Telegram posts here; the path carries the bot token, so
-	# it is matched by prefix rather than spelled out in this file.
+	# The bot's webhook, served by the API itself.
 	handle /telegram/* {
-		reverse_proxy telegram:8080
+		reverse_proxy backend:8000
 	}
 
 	# API surface. /internal/* is deliberately absent: those routes are for the

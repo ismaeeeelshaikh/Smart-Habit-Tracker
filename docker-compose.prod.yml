@@ -7,7 +7,8 @@
 #   - Caddy terminates HTTPS; nothing else publishes a port
 #   - the database is no longer reachable from outside the compose network
 #   - no source bind-mounts, so the image is what actually runs
-#   - the bot runs in webhook mode, which is why HTTPS is mandatory
+#   - the bot (inside the API) runs in webhook mode, which is why HTTPS
+#     is mandatory
 services:
   db:
     # Published in dev for psql access; in production the only things that need
@@ -47,11 +48,6 @@ services:
       RUN_MIGRATIONS: "false"
     # The image is the artifact in production; no live source mount.
     volumes: !reset []
-    restart: always
-
-  telegram:
-    # Caddy proxies /telegram/* here; the container itself stays unpublished.
-    ports: !reset []
     restart: always
 
   scheduler:

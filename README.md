@@ -82,13 +82,13 @@ npm run dev                            # http://localhost:5173
 
 ```bash
 JWT_SECRET=$(openssl rand -hex 32)          # generate a real one
-INTERNAL_API_KEY=$(openssl rand -hex 32)    # the bot and scheduler present this
+INTERNAL_API_KEY=$(openssl rand -hex 32)    # the scheduler and cron present this
 
 COOKIE_SECURE=false        # the refresh cookie is HTTPS-only otherwise, so
                            # login over plain http silently fails to persist
 
-TELEGRAM_WEBHOOK_URL=      # leave EMPTY locally -> the bot long-polls.
-                           # Setting it needs a public HTTPS URL Telegram can reach.
+TELEGRAM_WEBHOOK_URL=      # leave EMPTY locally. Telegram cannot reach a laptop,
+                           # and a local bot on production's token steals its updates.
 ```
 
 Two things that will cost you an afternoon:
@@ -103,7 +103,7 @@ Two things that will cost you an afternoon:
 
 1. Message [@BotFather](https://t.me/BotFather), send `/newbot`, follow it.
 2. Put the token in `TELEGRAM_BOT_TOKEN` and the name (no `@`) in
-   `TELEGRAM_BOT_USERNAME`, then `docker compose up -d --build telegram`.
+   `TELEGRAM_BOT_USERNAME`, then `docker compose up -d --build backend`.
 3. In the web app: **Settings → Telegram → Generate linking code**.
 4. Send that code to your bot. It replies "Connected".
 
@@ -156,27 +156,28 @@ browser ──▶ frontend (React, Vite, Tailwind)
                 │  /api, /auth
                 ▼
             backend (FastAPI) ──▶ Postgres
-                ▲   ▲
-   /internal/* │   │ /internal/*
-                │   │
-          telegram   scheduler
-        (python-     (APScheduler)
-      telegram-bot)      │
-                │        │
-                ▼        ▼
+              │      ▲
+   the bot +  │      │ /internal/dispatch, once a minute
+   the        │      │
+   reminder   │   a cron trigger (cron-job.org in production,
+   loop live  │   the scheduler container locally)
+   in here    │
+                ▼
             Telegram Bot API
 ```
 
 Two rules the design leans on:
 
-- **The bot and scheduler never touch the database.** They exchange a chat id
-  for a short-lived user token and then call the same `/api` routes the browser
-  does, so ownership checks and validation live in exactly one place.
-- **The scheduler is its own container**, so one process owns job execution and
-  nobody is reminded twice.
+- **The bot and the reminder loop never touch the database.** Both run inside
+  the API process and still call the same `/api` routes the browser does — over
+  loopback, with a short-lived user token — so ownership checks and validation
+  live in exactly one place.
+- **One dispatch pass runs at a time.** The endpoint takes a Postgres advisory
+  lock, so overlapping or retried ticks stand down rather than reminding
+  someone twice.
 
-Slot detection and allocation are pure functions shared by the API and the
-scheduler — same code, one implementation, deterministic output.
+Slot detection and allocation are pure functions, computed once in the API and
+used by every caller — same code, one implementation, deterministic output.
 
 ---
 
@@ -200,10 +201,10 @@ export JWT_SECRET=test COOKIE_SECURE=false RATE_LIMIT_ENABLED=false
 venv/bin/pytest -q
 ```
 
-The bot and scheduler suites need neither a database nor a network:
+The bot tests live in `backend/tests/bot` and need no database. The scheduler
+suite needs neither a database nor a network:
 
 ```bash
-cd telegram  && pip install -r requirements-dev.txt && pytest -q
 cd scheduler && pip install -r requirements-dev.txt && pytest -q
 cd frontend  && npm run test:run && npm run typecheck && npm run lint
 ```
@@ -233,13 +234,13 @@ Oracle Cloud Always Free gives a real VM that stays awake, and
 | Backend exits with `SettingsError` | A malformed value in `.env` — the message names the field |
 | Backend cannot reach the database | `DATABASE_URL` is set in `.env`; comment it out |
 | Bot ignores you | It is not linked. Send it your code from Settings |
-| No reminders arrive | Check `docker compose logs scheduler`. They only fire for a slot starting within 15 minutes, once per hour unless you tap Done |
+| No reminders arrive | Check `docker compose logs scheduler` and `backend`. They only fire for a slot starting within 15 minutes, once per hour unless you tap Done |
 | Times are hours out | The container is missing `tzdata`, so your timezone silently fell back to UTC. Rebuild |
 | Login does not persist | `COOKIE_SECURE=true` over plain http |
 | `vitest` times out having run nothing | You are on Node 24. Use Node 22 |
 
 ```bash
-docker compose logs -f backend    # or telegram, scheduler, db
+docker compose logs -f backend    # or scheduler, db
 ```
 
 ---

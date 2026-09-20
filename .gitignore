@@ -122,3 +122,6 @@ docs
 coverage.xml
 .coverage
 project_structure.md
+
+# Wrangler keeps a local account cache next to the cron Worker.
+.wrangler/

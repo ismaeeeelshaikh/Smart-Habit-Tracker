@@ -49,8 +49,14 @@ class Settings(BaseSettings):
     # --- Telegram ---------------------------------------------------------
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_BOT_USERNAME: str = ""
+    # Checked against X-Telegram-Bot-Api-Secret-Token on every incoming update.
     TELEGRAM_WEBHOOK_SECRET: str = ""
+    # Public HTTPS address of this API's /telegram/webhook route. Set it and the
+    # bot registers that webhook on startup; leave it blank and the bot handles
+    # nothing, which is what local development wants.
     TELEGRAM_WEBHOOK_URL: str = ""
+    # Where the bot points a user who hasn't linked their account yet.
+    WEB_APP_URL: str = "http://localhost:5173"
     # 10 minutes per App Flow Document Section 4.3 ("Code expired (>10 min unused)").
     TELEGRAM_LINK_CODE_TTL_MINUTES: int = 10
 
@@ -58,10 +64,12 @@ class Settings(BaseSettings):
     # How long the bot stays quiet after a reminder the user ignored,
     # snoozed with Later, or skipped. Only Done clears it early.
     QUIET_MINUTES_AFTER_REMINDER: int = 60
-    # Where a dispatch pass reaches this API. Blank means this same process over
-    # loopback, which is right whenever the pass runs inside the API — as it
-    # does in production. Only set it if the API is not listening on API_PORT.
-    DISPATCH_API_URL: str = ""
+    # Where the dispatch pass and the bot reach this API. Both run inside the
+    # API process and still go through its routes, so validation and ownership
+    # scoping stay in one place. Blank means this same process over loopback,
+    # which is what production wants; set it only if the API is not listening
+    # on API_PORT.
+    INTERNAL_API_URL: str = ""
 
     model_config = SettingsConfigDict(
         env_file=str(REPO_ROOT / ".env"),
@@ -101,8 +109,8 @@ class Settings(BaseSettings):
         return self
 
     @property
-    def dispatch_api_url(self) -> str:
-        return self.DISPATCH_API_URL or f"http://127.0.0.1:{self.API_PORT}"
+    def internal_api_url(self) -> str:
+        return self.INTERNAL_API_URL or f"http://127.0.0.1:{self.API_PORT}"
 
     @property
     def ALGORITHM(self) -> str:

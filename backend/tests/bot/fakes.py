@@ -1,18 +1,9 @@
-"""Fakes for the handler tests.
+"""Fakes for the bot handler tests.
 
 The handlers touch only a handful of attributes on Update/Context, so these
 stand in for them directly rather than assembling real Telegram objects — the
 thing under test is our logic, not python-telegram-bot's parsing.
 """
-
-import sys
-from pathlib import Path
-
-import pytest
-
-# The bot modules import each other flat (`import handlers`), the way they do
-# inside the container where the code sits at /app.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 class FakeMessage:
@@ -93,16 +84,3 @@ class FakeBackend:
 
     def forget(self, chat_id):
         pass
-
-
-@pytest.fixture
-def backend():
-    return FakeBackend()
-
-
-@pytest.fixture
-def make_context():
-    def _make(backend, args=None):
-        return FakeContext(backend, args)
-
-    return _make

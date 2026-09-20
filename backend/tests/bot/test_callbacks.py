@@ -5,10 +5,10 @@ matters as much as its success one: a tap that silently does nothing would let
 a user believe work was recorded when it wasn't.
 """
 
-from conftest import FakeBackend
+from app.bot import handlers as h
+from app.bot.client import BackendError
 
-import handlers as h
-from api_client import BackendError
+from .fakes import FakeBackend
 
 
 class FakeCallbackMessage:

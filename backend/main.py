@@ -1,3 +1,6 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -13,11 +16,39 @@ from app.api.endpoints import (
     stats,
     telegram,
     users,
+    webhook,
 )
 from app.core.config import settings
 from app.core.rate_limit import limiter
 
-app = FastAPI(title="Personal Time Intelligence API")
+log = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run the bot alongside the API, when there is a bot to run.
+
+    Without a token — the test suite, a fresh clone — the API serves normally
+    and /telegram/webhook answers 503 instead.
+    """
+    app.state.bot = None
+    if settings.TELEGRAM_BOT_TOKEN:
+        from app.bot import application as bot
+
+        app.state.bot = bot.build()
+        await bot.start(app.state.bot)
+    else:
+        log.info("TELEGRAM_BOT_TOKEN is not set — the bot is off")
+
+    yield
+
+    if app.state.bot is not None:
+        from app.bot import application as bot
+
+        await bot.stop(app.state.bot)
+
+
+app = FastAPI(title="Personal Time Intelligence API", lifespan=lifespan)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -38,6 +69,8 @@ app.include_router(slots.router, prefix="/api/slots", tags=["slots"])
 app.include_router(reminders.router, prefix="/api/reminders", tags=["reminders"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
 app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])
+# Telegram posts updates here; authenticated by the webhook secret, not a user.
+app.include_router(webhook.router, prefix="/telegram", tags=["telegram"])
 # Service-to-service, shared-key authenticated — not part of the public surface.
 app.include_router(internal.router, prefix="/internal", tags=["internal"])
 

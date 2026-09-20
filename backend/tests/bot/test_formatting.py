@@ -6,7 +6,7 @@ booked" message where "fully free" belongs, is a real bug in a product whose
 whole tone is meant to be non-punitive.
 """
 
-import formatting as fmt
+from app.bot import formatting as fmt
 
 
 def block(day="mon", label="Work", start="09:00:00", end="17:00:00"):

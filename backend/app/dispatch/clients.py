@@ -25,7 +25,7 @@ class BackendError(Exception):
 class BackendClient:
     def __init__(self, base_url: str | None = None) -> None:
         self._client = httpx.AsyncClient(
-            base_url=(base_url or settings.dispatch_api_url).rstrip("/"), timeout=10.0
+            base_url=(base_url or settings.internal_api_url).rstrip("/"), timeout=10.0
         )
 
     async def aclose(self) -> None:

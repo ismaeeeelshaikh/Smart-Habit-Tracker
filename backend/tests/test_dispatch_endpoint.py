@@ -37,9 +37,9 @@ def passes(monkeypatch):
 def test_the_pass_reaches_this_api_over_loopback_by_default():
     from app.core.config import Settings
 
-    assert Settings(_env_file=None, API_PORT=8123).dispatch_api_url == "http://127.0.0.1:8123"
+    assert Settings(_env_file=None, API_PORT=8123).internal_api_url == "http://127.0.0.1:8123"
     assert (
-        Settings(_env_file=None, DISPATCH_API_URL="http://backend:8000").dispatch_api_url
+        Settings(_env_file=None, INTERNAL_API_URL="http://backend:8000").internal_api_url
         == "http://backend:8000"
     )
 

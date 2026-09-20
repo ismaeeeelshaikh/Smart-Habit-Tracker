@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from config import settings
+from app.core.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class BackendError(Exception):
 
 class BackendClient:
     def __init__(self, base_url: str | None = None) -> None:
-        self._base_url = (base_url or settings.BACKEND_API_URL).rstrip("/")
+        self._base_url = (base_url or settings.internal_api_url).rstrip("/")
         self._client = httpx.AsyncClient(base_url=self._base_url, timeout=10.0)
         # chat_id -> (token, expires_at_monotonic). Tokens live minutes, so this
         # saves a round trip per command without keeping anything meaningful.

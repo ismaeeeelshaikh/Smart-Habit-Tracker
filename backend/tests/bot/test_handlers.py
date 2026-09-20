@@ -6,10 +6,11 @@ just one.
 """
 
 import pytest
-from conftest import FakeBackend, FakeUpdate
 
-import handlers as h
-from api_client import BackendError
+from app.bot import handlers as h
+from app.bot.client import BackendError
+
+from .fakes import FakeBackend, FakeUpdate
 
 
 class TestUnlinkedGate:
