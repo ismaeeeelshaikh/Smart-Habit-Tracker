@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
+import { DescribeWeek } from '../../components/schedule/DescribeWeek';
 import { ScheduleList } from '../../components/schedule/ScheduleList';
 import { useScheduleBlocks } from '../../hooks/useScheduleBlocks';
 import type { DayOfWeek, ScheduleBlockCreate } from '../../types';
 
 export const ScheduleSetup = () => {
   const navigate = useNavigate();
-  const { blocks, isLoading, error, addBlock, editBlock, removeBlock } = useScheduleBlocks();
+  const { blocks, isLoading, error, refetch, addBlock, editBlock, removeBlock } = useScheduleBlocks();
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pt-8 animate-in fade-in duration-300 mb-12">
@@ -22,6 +23,8 @@ export const ScheduleSetup = () => {
       </header>
 
       {error && <p className="text-[var(--color-error)] font-medium">{error}</p>}
+
+      <DescribeWeek onSaved={refetch} />
 
       {isLoading ? (
         <div className="flex justify-center p-8">

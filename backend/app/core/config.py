@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     # 10 minutes per App Flow Document Section 4.3 ("Code expired (>10 min unused)").
     TELEGRAM_LINK_CODE_TTL_MINUTES: int = 10
 
+    # --- Model ------------------------------------------------------------
+    # Reads a described week into schedule rows. Blank turns the feature off:
+    # the form stays, and the API says so rather than failing oddly.
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    # A described week is one short request; waiting longer than this is worse
+    # than telling the user to use the form.
+    GROQ_TIMEOUT_SECONDS: float = 25.0
+
     # --- Dispatch ---------------------------------------------------------
     # How long the bot stays quiet after a reminder the user ignored,
     # snoozed with Later, or skipped. Only Done clears it early.

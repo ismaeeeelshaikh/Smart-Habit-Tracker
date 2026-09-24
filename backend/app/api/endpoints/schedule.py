@@ -1,15 +1,25 @@
 from datetime import UTC, datetime, time
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app.ai.groq import AIUnavailable
+from app.ai.schedule_draft import draft_from_text
 from app.api import deps
+from app.core.rate_limit import limiter
 from app.db.database import get_db
 from app.db.models import ScheduleBlock as ScheduleBlockModel
 from app.db.models import User
-from app.schemas.schedule import ScheduleBlock, ScheduleBlockCreate, ScheduleBlockUpdate
+from app.schemas.schedule import (
+    ScheduleBlock,
+    ScheduleBlockCreate,
+    ScheduleBlockUpdate,
+    ScheduleBulkCreate,
+    ScheduleDraftRequest,
+    ScheduleDraftResponse,
+)
 
 router = APIRouter()
 
@@ -117,6 +127,75 @@ async def create_schedule_block(
     await db.commit()
     await db.refresh(db_block)
     return db_block
+
+
+@router.post("/draft", response_model=ScheduleDraftResponse)
+@limiter.limit("10/minute")
+async def draft_schedule_blocks(
+    *,
+    request: Request,
+    payload: ScheduleDraftRequest,
+    current_user: User = Depends(deps.get_current_user),
+):
+    """Read a described week into proposed blocks. Saves nothing.
+
+    Entering a timetable by hand is the largest thing standing between someone
+    and a schedule worth computing against, so this reads it instead — but the
+    user confirms every row, because a wrong block silently spoils every
+    suggestion afterwards.
+
+    When the model is unavailable this is a 503 with a sentence worth showing:
+    the form below it still works, and saying so is better than a spinner.
+    """
+    try:
+        blocks, skipped = await draft_from_text(payload.text)
+    except AIUnavailable as err:
+        raise HTTPException(status_code=503, detail=str(err)) from err
+
+    return ScheduleDraftResponse(
+        blocks=[block.as_dict() for block in blocks], skipped=skipped
+    )
+
+
+@router.post("/bulk", response_model=list[ScheduleBlock], status_code=status.HTTP_201_CREATED)
+async def create_schedule_blocks(
+    *,
+    db: AsyncSession = Depends(get_db),
+    payload: ScheduleBulkCreate,
+    current_user: User = Depends(deps.get_current_user),
+):
+    """Save a reviewed draft in one transaction.
+
+    All or nothing: half a saved timetable is worse than none, because the user
+    cannot tell which half is missing.
+    """
+    for block_in in payload.blocks:
+        validate_block_shape(
+            is_flexible=block_in.is_flexible_block,
+            start_time=block_in.start_time,
+            end_time=block_in.end_time,
+            flexible_availability=block_in.flexible_availability,
+            remind_before_minutes=block_in.remind_before_minutes,
+        )
+
+    created = [
+        ScheduleBlockModel(
+            user_id=current_user.id,
+            day_of_week=block_in.day_of_week,
+            label=block_in.label,
+            start_time=block_in.start_time,
+            end_time=block_in.end_time,
+            is_flexible_block=block_in.is_flexible_block,
+            flexible_availability=block_in.flexible_availability,
+            remind_before_minutes=block_in.remind_before_minutes,
+        )
+        for block_in in payload.blocks
+    ]
+    db.add_all(created)
+    await db.commit()
+    for block in created:
+        await db.refresh(block)
+    return created
 
 
 @router.put("/{block_id}", response_model=ScheduleBlock)

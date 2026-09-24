@@ -54,6 +54,20 @@ export interface ScheduleBlockCreate {
 
 export type ScheduleBlockUpdate = Partial<ScheduleBlockCreate>;
 
+/** One row the model proposed from a described week. Nothing is saved yet. */
+export interface ScheduleDraftBlock {
+    day_of_week: DayOfWeek;
+    label: string;
+    start_time: string;
+    end_time: string;
+}
+
+export interface ScheduleDraft {
+    blocks: ScheduleDraftBlock[];
+    /** One sentence per row that was dropped, so a misread class is visible. */
+    skipped: string[];
+}
+
 export interface Goal {
     id: string;
     user_id: string;

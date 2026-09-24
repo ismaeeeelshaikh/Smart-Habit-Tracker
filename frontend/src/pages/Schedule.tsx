@@ -1,9 +1,10 @@
+import { DescribeWeek } from '../components/schedule/DescribeWeek';
 import { ScheduleList } from '../components/schedule/ScheduleList';
 import { useScheduleBlocks } from '../hooks/useScheduleBlocks';
 import type { DayOfWeek, ScheduleBlockCreate } from '../types';
 
 export const Schedule = () => {
-  const { blocks, isLoading, error, addBlock, editBlock, removeBlock } = useScheduleBlocks();
+  const { blocks, isLoading, error, refetch, addBlock, editBlock, removeBlock } = useScheduleBlocks();
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 max-w-4xl mx-auto mb-12">
@@ -13,6 +14,8 @@ export const Schedule = () => {
       </header>
 
       {error && <p className="text-[var(--color-error)] font-medium">{error}</p>}
+
+      <DescribeWeek onSaved={refetch} />
 
       {isLoading ? (
         <div className="flex justify-center p-8">

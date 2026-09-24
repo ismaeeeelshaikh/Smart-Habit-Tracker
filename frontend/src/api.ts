@@ -13,6 +13,7 @@ import type {
     ScheduleBlock,
     ScheduleBlockCreate,
     ScheduleBlockUpdate,
+    ScheduleDraft,
     TodayFreeSlots,
     User,
     WeeklyStats,
@@ -180,6 +181,22 @@ export const updateScheduleBlock = (
 
 export const deleteScheduleBlock = (id: string): Promise<void> =>
     request<void>(`/api/schedule/${id}`, { method: 'DELETE' }, "Couldn't delete that block. Please try again.");
+
+/** Reads a described week into proposed blocks. Saves nothing. */
+export const draftScheduleBlocks = (text: string): Promise<ScheduleDraft> =>
+    request<ScheduleDraft>(
+        '/api/schedule/draft',
+        jsonBody('POST', { text }),
+        "Couldn't read that right now. Add your blocks below instead.",
+    );
+
+/** Saves a reviewed draft. All of it, or none of it. */
+export const createScheduleBlocks = (blocks: ScheduleBlockCreate[]): Promise<ScheduleBlock[]> =>
+    request<ScheduleBlock[]>(
+        '/api/schedule/bulk',
+        jsonBody('POST', { blocks }),
+        "Couldn't save those blocks. Please try again.",
+    );
 
 // --- Goals -----------------------------------------------------------------
 

@@ -35,6 +35,34 @@ class ScheduleBlockUpdate(BaseModel):
     remind_before_minutes: int | None = Field(None, ge=0, le=1440)
 
 
+class ScheduleDraftRequest(BaseModel):
+    """A week in the user's own words, e.g. "Mon-Fri college 9 to 3, gym Tue 6pm"."""
+
+    text: str = Field(..., min_length=1, max_length=4000)
+
+
+class ScheduleDraftBlock(BaseModel):
+    """A proposed row. Nothing is stored until the user says yes."""
+
+    day_of_week: DayOfWeekEnum
+    label: str = Field(..., max_length=100)
+    start_time: time
+    end_time: time
+
+
+class ScheduleDraftResponse(BaseModel):
+    blocks: list[ScheduleDraftBlock]
+    # One sentence per row that was dropped, so a misread gym class is visible
+    # rather than silently missing.
+    skipped: list[str] = []
+
+
+class ScheduleBulkCreate(BaseModel):
+    """Saving a reviewed draft: all of it, or none of it."""
+
+    blocks: list[ScheduleBlockCreate] = Field(..., min_length=1, max_length=100)
+
+
 class ScheduleBlock(ScheduleBlockBase):
     id: UUID
     user_id: UUID

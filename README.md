@@ -41,6 +41,8 @@ decides when you are free, so the same schedule always produces the same answer.
 - **Suggests by priority.** High-priority goals get the good slots; a 30-minute
   goal is not offered a 15-minute gap.
 - **Delivers on Telegram**, so there is no app to open and nothing to remember.
+- **Reads your week in your own words**, so a timetable is a sentence rather
+  than forty form submissions — and shows you what it understood before saving.
 - **Acts in one tap.** ✅ Done · ⏳ Later · ❌ Skip, straight from the message.
 - **Leaves you alone when you say so.** Later or Skip buys an hour of quiet.
   Only Done clears the way for the next suggestion.
@@ -141,8 +143,8 @@ are free from 8am to 10pm every day, and its suggestions are meaningless.
 | `/help` | The list above |
 
 Reminders also arrive on their own, without you asking — that is the point of
-the thing. The scheduler checks every five minutes and messages you when a free
-slot is about to start.
+the thing. A cron trigger runs one dispatch pass a minute, and you get a message
+when something you set comes due or a free slot is about to start.
 
 `/add` takes times how you would write them: `9:30 pm`, `9pm`, `21:30`. Dates
 take `today` and `tomorrow` as well as `2026-09-10`.
@@ -183,8 +185,8 @@ used by every caller — same code, one implementation, deterministic output.
 
 ## Running the tests
 
-373 tests across four suites. CI runs all of them, plus image builds for x86 and
-ARM.
+491 tests across three suites. CI runs all of them, plus image builds for x86
+and ARM.
 
 ```bash
 # Backend — needs Postgres. Use the compose one; take user, password and port
