@@ -116,7 +116,7 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                 placeholder={EXAMPLE}
                 rows={3}
                 maxLength={4000}
-                className="w-full rounded-[8px] border border-[var(--color-border)] bg-white px-3 py-2 text-[15px] text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
+                className="w-full rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[15px] text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
             />
 
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -152,7 +152,7 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
             <div className="flex flex-col gap-2 border-t border-border pt-3">
                 <p className="text-sm font-medium">Have your college timetable as a PDF?</p>
                 <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex items-center gap-2 cursor-pointer rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm hover:border-[var(--color-free)] focus-within:ring-[3px] focus-within:ring-[var(--color-free-tint)]">
+                    <label className="inline-flex items-center gap-2 cursor-pointer rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm hover:border-[var(--color-free)] focus-within:ring-[3px] focus-within:ring-[var(--color-free-tint)]">
                         <FileUp aria-hidden="true" className="h-4 w-4" />
                         <span className="min-w-0 truncate max-w-[14rem]">{pdf ? pdf.name : 'Choose PDF'}</span>
                         <input
@@ -236,7 +236,7 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                                 <select
                                     value={reminder}
                                     onChange={(e) => setReminder(e.target.value)}
-                                    className="h-9 rounded-md border border-[var(--color-border)] bg-white px-2 text-sm text-[var(--color-ink)] outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
+                                    className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-sm text-[var(--color-ink)] outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
                                 >
                                     {REMINDER_CHOICES.map((choice) => (
                                         <option key={choice.value} value={choice.value}>

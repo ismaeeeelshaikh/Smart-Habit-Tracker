@@ -58,7 +58,7 @@ interface QuietDaysProps {
 }
 
 const inputClass =
-    'h-10 rounded-md border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]';
+    'h-10 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]';
 
 /**
  * One idea, two ways to say it: every week ("every Saturday") or on a date
@@ -164,8 +164,8 @@ export const QuietDays: React.FC<QuietDaysProps> = ({ quietDays, onChangeQuietDa
                                 onClick={() => toggleWeekday(day.id)}
                                 className={`h-9 min-w-[3.25rem] rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)] disabled:opacity-60 ${
                                     quiet
-                                        ? 'border-[var(--color-ink)] bg-[var(--color-ink)] text-white'
-                                        : 'border-[var(--color-border)] bg-white text-[var(--color-ink)] hover:border-[var(--color-free)]'
+                                        ? 'border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-bg)]'
+                                        : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-ink)] hover:border-[var(--color-free)]'
                                 }`}
                             >
                                 {day.short}

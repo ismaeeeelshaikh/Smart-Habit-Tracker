@@ -56,7 +56,7 @@ export const AppLayout = () => {
                       "px-3 py-2 rounded-md font-inter text-sm font-medium transition-colors flex items-center space-x-2 min-h-[44px] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)]",
                       isActive 
                         ? "text-[var(--color-free)] bg-[var(--color-free-tint)]" 
-                        : "text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-gray-50"
+                        : "text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)]"
                     )
                   }
                 >

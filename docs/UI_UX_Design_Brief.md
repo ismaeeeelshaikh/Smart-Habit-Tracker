@@ -21,18 +21,38 @@ This concept drives every decision below: the palette separates "committed" from
 
 ## 2. Color Palette
 
-Cool, paper-light base (not warm cream) — because the product's job is clarity and low visual noise for something checked many times a day, not editorial warmth.
+**"Cerulean"** (chosen September 2026, replacing the original teal): free time is an open-sky blue with a little sea in it, committed time is warm charcoal, on a paper-warm ground. The blue was picked away from the default "template" blue on purpose, and away from the priority reds, ambers and greens so the two colour systems never blur.
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--color-bg` | `#F6F7F5` | App background (cool off-white, slightly desaturated) |
-| `--color-surface` | `#FFFFFF` | Cards, modals, input fields |
-| `--color-ink` | `#1B211F` | Primary text (near-black, slight green undertone to avoid pure gray flatness) |
-| `--color-ink-muted` | `#5C645F` | Secondary text, placeholders, helper copy |
-| `--color-border` | `#DADDD7` | Hairline borders, dividers |
-| `--color-committed` | `#3B4266` | **Busy/committed time blocks** (deep slate blue — the "full" state) |
-| `--color-free` | `#17A085` | **Free/available time** (teal-green — the "open" state, used for the Week Strip's open segments, primary CTA buttons, and success confirmations) |
-| `--color-free-tint` | `#E4F5F0` | Light tint of `--color-free`, used as background fill for free-slot cards/sections |
+| `--color-bg` | `#F6F5F1` | App background (warm paper, not pure white) |
+| `--color-surface` | `#FFFEFB` | Cards, modals, input fields |
+| `--color-surface-soft` | `#EFEDE7` | Hover fills, muted panels |
+| `--color-ink` | `#1F1D1A` | Primary text |
+| `--color-ink-muted` | `#67625A` | Secondary text, placeholders, helper copy |
+| `--color-border` | `#E3DFD6` | Hairline borders, dividers |
+| `--color-committed` | `#33302B` | **Busy/committed time blocks** (warm charcoal — the "full" state) |
+| `--color-free` | `#1F7FB0` | **Free/available time** (cerulean — the "open" state: Week Strip open segments, primary CTA, success confirmations) |
+| `--color-free-tint` | `#E2F0F6` | Light tint of `--color-free`, background for free-slot cards/sections |
+| `--color-on-free` | `#FFFFFF` | Text on a free-coloured fill |
+
+**Dark mode — "Night"** follows the phone's setting. Same family, not a separate accent: a warm charcoal ground rather than pure black, so it avoids the usual neon-on-black look.
+
+| Token | Hex |
+|---|---|
+| `--color-bg` | `#15171A` |
+| `--color-surface` | `#1D2024` |
+| `--color-surface-soft` | `#24282D` |
+| `--color-ink` | `#E9E6E0` |
+| `--color-ink-muted` | `#A39E95` |
+| `--color-border` | `#2F343A` |
+| `--color-committed` | `#4A4640` |
+| `--color-free` | `#58A9D6` |
+| `--color-free-tint` | `#18303F` |
+| `--color-on-free` | `#0C1C26` |
+| Priority high / medium / low | `#EC737B` / `#E8B25E` / `#6FBF91` |
+| `--color-error` | `#EC737B` |
+| `--color-warning-bg` | `#3A3020` |
 
 **Priority colors** (separate semantic system — used only for goal priority badges, never for committed/free state, to avoid ambiguity):
 
@@ -49,7 +69,7 @@ Cool, paper-light base (not warm cream) — because the product's job is clarity
 | `--color-error` | `#C13B3B` | Error text, error borders |
 | `--color-warning-bg` | `#FCF3D9` | Warning banners (e.g., Telegram-not-connected banner) |
 
-**Rule for the builder:** `--color-committed` and `--color-free` are reserved exclusively for representing time state (schedule blocks, Week Strip, free-slot cards). Do not reuse them for unrelated UI decoration (e.g., don't make a random icon teal just because it's the accent) — that dilutes the one piece of color-coding that's actually meaningful in this product.
+**Rule for the builder:** `--color-committed` and `--color-free` are reserved exclusively for representing time state (schedule blocks, Week Strip, free-slot cards). Do not reuse them for unrelated UI decoration (e.g., don't make a random icon blue just because it's the accent) — that dilutes the one piece of color-coding that's actually meaningful in this product.
 
 ---
 
@@ -153,13 +173,13 @@ Breakpoints:
 
 ## 7. UX Principles
 
-1. **Free time is the reward, not the checklist.** Visual weight favors showing what's open, not just what's done. The Week Strip's teal "free" segments should read as more visually inviting than the slate "committed" segments — this is a deliberate hierarchy, not neutral color choice.
+1. **Free time is the reward, not the checklist.** Visual weight favors showing what's open, not just what's done. The Week Strip's cerulean "free" segments should read as more visually inviting than the charcoal "committed" segments — this is a deliberate hierarchy, not neutral color choice.
 
 2. **Non-punitive tone, always.** Per the UX Flow Document's messaging (e.g., "No worries — see you next time" on Skip), no red error styling or alarming language for a skipped habit. Reserve `--color-error` strictly for actual system errors (failed requests, invalid input) — never for a user choosing "Skip" or "Later." Conflating "you skipped a habit" with "something went wrong" is a tone mistake to explicitly avoid.
 
 3. **Data earns monospace; prose doesn't.** Reinforces the precision identity without making the whole UI feel like a terminal — restraint is what makes the mono treatment meaningful.
 
-4. **One accent color carries meaning.** `--color-free` is used for: primary buttons, free-slot indication, and success states. This consistency means a user learns "teal = good/open/go" once and it holds everywhere — don't introduce a second competing "brand" color for marketing flourishes.
+4. **One accent color carries meaning.** `--color-free` is used for: primary buttons, free-slot indication, and success states. This consistency means a user learns "blue = good/open/go" once and it holds everywhere — don't introduce a second competing "brand" color for marketing flourishes.
 
 5. **Confirmation without ceremony.** Destructive actions confirm inline (Section 5.3), not via modal — respects that this is a low-stakes, frequently-used utility app where a habit block or goal is easy to re-add, not a one-way door requiring heavy friction.
 

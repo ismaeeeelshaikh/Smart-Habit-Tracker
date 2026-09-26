@@ -1,20 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  /* Colors */
-  --color-bg: #F6F7F5;
-  --color-surface: #FFFFFF;
-  --color-ink: #1B211F;
-  --color-ink-muted: #5C645F;
-  --color-border: #DADDD7;
-  --color-committed: #3B4266;
-  --color-free: #17A085;
-  --color-free-tint: #E4F5F0;
-  
+  /* Colors: "Cerulean". Free time is the open-sky blue; committed time is
+     warm charcoal on a paper-warm ground. Dark values ("Night") are below. */
+  --color-bg: #F6F5F1;
+  --color-surface: #FFFEFB;
+  --color-surface-soft: #EFEDE7;
+  --color-ink: #1F1D1A;
+  --color-ink-muted: #67625A;
+  --color-border: #E3DFD6;
+  --color-committed: #33302B;
+  --color-free: #1F7FB0;
+  --color-free-tint: #E2F0F6;
+  /* Text on a free-coloured fill (the primary button). */
+  --color-on-free: #FFFFFF;
+
   --color-priority-high: #D64550;
   --color-priority-medium: #E8A33D;
   --color-priority-low: #4C9F70;
-  
+
   --color-error: #C13B3B;
   --color-warning-bg: #FCF3D9;
 
@@ -41,6 +45,50 @@
   
   --text-data-lg: 28px;
   --text-data-lg--line-height: 34px;
+}
+
+/* Names some components were written against. They used to resolve to
+   nothing (Tailwind 4 emits no colour for an unknown token), so borders fell
+   back to the text colour and cards had no fill. They are aliases, not new
+   colours: every one points at a token above. */
+@theme inline {
+  --color-card: var(--color-surface);
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-ink);
+  --color-muted: var(--color-surface-soft);
+  --color-muted-foreground: var(--color-ink-muted);
+  --color-destructive: var(--color-error);
+  --color-input: var(--color-border);
+  --color-primary: var(--color-free);
+  --color-ring: var(--color-free);
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* "Night": the same family in the dark. Tailwind's @theme can't sit inside a
+   media query, but its utilities read these variables at runtime, so
+   overriding them here switches the whole app with the phone's setting. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-bg: #15171A;
+    --color-surface: #1D2024;
+    --color-surface-soft: #24282D;
+    --color-ink: #E9E6E0;
+    --color-ink-muted: #A39E95;
+    --color-border: #2F343A;
+    --color-committed: #4A4640;
+    --color-free: #58A9D6;
+    --color-free-tint: #18303F;
+    --color-on-free: #0C1C26;
+    --color-priority-high: #EC737B;
+    --color-priority-medium: #E8B25E;
+    --color-priority-low: #6FBF91;
+    --color-error: #EC737B;
+    --color-warning-bg: #3A3020;
+  }
 }
 
 body {

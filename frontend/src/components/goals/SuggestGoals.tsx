@@ -82,7 +82,7 @@ export const SuggestGoals: React.FC<SuggestGoalsProps> = ({ onAdd }) => {
                 placeholder="Optional: final year IT student, placements coming up, want to stay fit…"
                 rows={2}
                 maxLength={500}
-                className="w-full rounded-[8px] border border-[var(--color-border)] bg-white px-3 py-2 text-[15px] text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
+                className="w-full rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[15px] text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
             />
 
             <div className="flex flex-wrap items-center justify-end gap-2">

@@ -21,7 +21,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           className={cn(
-            "w-full bg-white border border-[var(--color-border)] rounded-[8px] px-[12px] py-[10px] text-[var(--color-ink)] font-inter text-[15px]",
+            "w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[8px] px-[12px] py-[10px] text-[var(--color-ink)] font-inter text-[15px]",
             // transition-colors, not transition-all: naming the properties keeps this
             // off the compositor's slow path.
             "placeholder-[var(--color-ink-muted)] outline-none transition-colors",

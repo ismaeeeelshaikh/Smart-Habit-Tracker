@@ -18,8 +18,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const baseStyles = "inline-flex items-center justify-center min-h-[44px] touch-manipulation transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-[var(--color-border)] disabled:text-[var(--color-ink-muted)] disabled:border-transparent font-inter font-medium";
     
     const variants = {
-      primary: "bg-[var(--color-free)] text-white rounded-[10px] px-[20px] py-[12px] hover:brightness-90 focus-visible:ring-[var(--color-free)]",
-      secondary: "bg-transparent border border-[var(--color-border)] text-[var(--color-ink)] rounded-[10px] px-[20px] py-[12px] hover:bg-gray-50 focus-visible:ring-[var(--color-ink)]",
+      primary: "bg-[var(--color-free)] text-[var(--color-on-free)] rounded-[10px] px-[20px] py-[12px] hover:brightness-90 focus-visible:ring-[var(--color-free)]",
+      secondary: "bg-transparent border border-[var(--color-border)] text-[var(--color-ink)] rounded-[10px] px-[20px] py-[12px] hover:bg-[var(--color-surface-soft)] focus-visible:ring-[var(--color-ink)]",
       destructive: "bg-transparent text-[var(--color-error)] hover:underline focus-visible:ring-[var(--color-error)] rounded-[8px] px-3 py-2"
     };
 
