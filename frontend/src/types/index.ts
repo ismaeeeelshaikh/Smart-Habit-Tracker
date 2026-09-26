@@ -105,6 +105,21 @@ export interface GoalCreate {
 
 export type GoalUpdate = Partial<GoalCreate>;
 
+/** A proposed goal, sized to the user's free time. Nothing is saved until added. */
+export interface GoalSuggestion {
+    name: string;
+    priority: Priority;
+    estimated_duration_minutes: number;
+    /** One sentence on why this, for this person. */
+    reason: string;
+}
+
+export interface GoalSuggestions {
+    suggestions: GoalSuggestion[];
+    /** One sentence per suggestion that was dropped, e.g. too long for any gap. */
+    skipped: string[];
+}
+
 // --- Slots -----------------------------------------------------------------
 
 export interface FreeSlot {

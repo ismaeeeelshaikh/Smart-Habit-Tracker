@@ -37,6 +37,9 @@ decides when you are free, so the same schedule always produces the same answer.
 
 - **Finds your real free time.** Your fixed blocks ("College, Mon 9–3") count. Gaps outside your active hours never get
   suggested — nobody wants a 3am study reminder.
+- **Helps you pick what to work on.** Say a line about yourself and it
+  proposes a few habits sized to the free time your week really has. You add
+  the ones you like; it never decides when you are free.
 - **Suggests by priority.** High-priority goals get the good slots; a 30-minute
   goal is not offered a 15-minute gap.
 - **Delivers on Telegram**, so there is no app to open and nothing to remember.
@@ -189,7 +192,7 @@ used by every caller — same code, one implementation, deterministic output.
 
 ## Running the tests
 
-577 tests across three suites. CI runs all of them, plus image builds for x86
+605 tests across three suites. CI runs all of them, plus image builds for x86
 and ARM.
 
 ```bash

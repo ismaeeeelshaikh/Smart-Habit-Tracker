@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { GoalList } from '../../components/goals/GoalList';
+import { SuggestGoals } from '../../components/goals/SuggestGoals';
 import { useGoals } from '../../hooks/useGoals';
 
 export const GoalSetup = () => {
@@ -23,6 +24,8 @@ export const GoalSetup = () => {
       </header>
 
       {error && <p className="text-[var(--color-error)] font-medium">{error}</p>}
+
+      <SuggestGoals onAdd={addGoal} />
 
       {isLoading ? (
         <div className="flex justify-center p-8">

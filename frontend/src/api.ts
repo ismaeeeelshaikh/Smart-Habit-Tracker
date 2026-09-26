@@ -3,6 +3,7 @@ import type {
     DayOffCreate,
     Goal,
     GoalCreate,
+    GoalSuggestions,
     GoalUpdate,
     LinkCode,
     LinkStatus,
@@ -241,6 +242,14 @@ export const deleteDayOff = (id: string): Promise<void> =>
 
 export const getGoals = (): Promise<Goal[]> =>
     request<Goal[]>('/api/goals/', {}, "Couldn't load your goals. Please try again.");
+
+/** Proposes goals that fit the user's week. Saves nothing. */
+export const suggestGoals = (about: string): Promise<GoalSuggestions> =>
+    request<GoalSuggestions>(
+        '/api/goals/suggest',
+        jsonBody('POST', { about }),
+        "Couldn't get suggestions right now. Add a goal yourself below.",
+    );
 
 export const createGoal = (data: GoalCreate): Promise<Goal> =>
     request<Goal>('/api/goals/', jsonBody('POST', data), "Couldn't save that goal. Please try again.");

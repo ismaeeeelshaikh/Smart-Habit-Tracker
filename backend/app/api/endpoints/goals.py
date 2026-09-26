@@ -1,14 +1,26 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app.ai.goal_suggest import suggest_goals
+from app.ai.groq import AIUnavailable
 from app.api import deps
+from app.api.endpoints.slots import load_entries
+from app.core.rate_limit import limiter
 from app.db.database import get_db
 from app.db.models import Goal as GoalModel
-from app.db.models import User
-from app.schemas.goal import Goal, GoalCreate, GoalUpdate
+from app.db.models import ScheduleBlock, User
+from app.schemas.goal import (
+    Goal,
+    GoalCreate,
+    GoalSuggestion,
+    GoalSuggestRequest,
+    GoalSuggestResponse,
+    GoalUpdate,
+)
+from app.services import DEFAULT_MIN_SLOT_MINUTES, free_slots_for_week
 
 router = APIRouter()
 
@@ -53,6 +65,63 @@ async def create_goal(
     await db.commit()
     await db.refresh(db_goal)
     return db_goal
+
+
+@router.post("/suggest", response_model=GoalSuggestResponse)
+@limiter.limit("10/minute")
+async def suggest(
+    *,
+    request: Request,
+    payload: GoalSuggestRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """Propose goals that fit this person's week. Saves nothing.
+
+    Right now a user has to know what they want before the app can help. This
+    offers a starting point, sized to the free time they really have; they add
+    the ones they like with the ordinary create call.
+    """
+    goals = (
+        await db.execute(select(GoalModel).where(GoalModel.user_id == current_user.id))
+    ).scalars().all()
+    labels = (
+        await db.execute(
+            select(ScheduleBlock.label)
+            .where(ScheduleBlock.user_id == current_user.id)
+            .distinct()
+        )
+    ).scalars().all()
+    week = free_slots_for_week(
+        await load_entries(db, current_user),
+        day_start=current_user.day_start_time,
+        day_end=current_user.day_end_time,
+        min_slot_minutes=DEFAULT_MIN_SLOT_MINUTES,
+    )
+
+    try:
+        suggestions, skipped = await suggest_goals(
+            payload.about,
+            [goal.name for goal in goals],
+            sorted(labels),
+            week,
+            set(current_user.quiet_days or []),
+        )
+    except AIUnavailable as err:
+        raise HTTPException(status_code=503, detail=str(err)) from err
+
+    return GoalSuggestResponse(
+        suggestions=[
+            GoalSuggestion(
+                name=s.name,
+                priority=s.priority,
+                estimated_duration_minutes=s.minutes,
+                reason=s.reason,
+            )
+            for s in suggestions
+        ],
+        skipped=skipped,
+    )
 
 
 @router.put("/{goal_id}", response_model=Goal)

@@ -1,4 +1,5 @@
 import { GoalList } from '../components/goals/GoalList';
+import { SuggestGoals } from '../components/goals/SuggestGoals';
 import { useGoals } from '../hooks/useGoals';
 
 export const Goals = () => {
@@ -22,6 +23,8 @@ export const Goals = () => {
       )}
 
       {error && <p className="text-[var(--color-error)] font-medium">{error}</p>}
+
+      <SuggestGoals onAdd={addGoal} />
 
       {isLoading ? (
         <div className="flex justify-center p-8">
