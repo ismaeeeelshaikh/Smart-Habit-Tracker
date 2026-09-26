@@ -243,6 +243,14 @@ export const deleteDayOff = (id: string): Promise<void> =>
 export const getGoals = (): Promise<Goal[]> =>
     request<Goal[]>('/api/goals/', {}, "Couldn't load your goals. Please try again.");
 
+/** Proposes ordered steps for a goal. Saves nothing — save with updateGoal. */
+export const breakDownGoal = (id: string, note: string): Promise<{ steps: string[] }> =>
+    request<{ steps: string[] }>(
+        `/api/goals/${id}/breakdown`,
+        jsonBody('POST', { note }),
+        "Couldn't break that goal down. Add steps yourself instead.",
+    );
+
 /** Proposes goals that fit the user's week. Saves nothing. */
 export const suggestGoals = (about: string): Promise<GoalSuggestions> =>
     request<GoalSuggestions>(

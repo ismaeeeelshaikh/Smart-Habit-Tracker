@@ -34,6 +34,8 @@ class AllocationOut(BaseModel):
     minutes: int
     start: datetime
     end: datetime
+    # The goal's first unfinished step, if it has been broken down.
+    current_step: str | None = None
 
 
 class WeekFreeSlotsOut(BaseModel):

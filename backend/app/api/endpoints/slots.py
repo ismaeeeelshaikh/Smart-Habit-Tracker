@@ -16,6 +16,7 @@ from sqlalchemy.future import select
 from app.api import deps
 from app.db.database import get_db
 from app.db.models import DayOff, Goal, ScheduleBlock, User
+from app.schemas.goal import current_step
 from app.schemas.slot import (
     AllocationOut,
     FreeSlotOut,
@@ -220,6 +221,18 @@ async def get_next_suggestion(
             reason="Add a goal to get personalized suggestions.",
         )
 
+    # Which step each goal is on, so the suggestion can say "today: Strings".
+    steps = dict(
+        (
+            await db.execute(
+                select(Goal.id, Goal.steps).where(
+                    Goal.user_id == current_user.id, Goal.is_active.is_(True)
+                )
+            )
+        ).all()
+    )
+    today_step = {str(goal_id): current_step(goal_steps) for goal_id, goal_steps in steps.items()}
+
     # Walk forward until a slot big enough for something turns up, rather than
     # reporting "nothing fits" on a 15-minute gap when a 2-hour one follows.
     for slot in slots:
@@ -236,6 +249,7 @@ async def get_next_suggestion(
                         minutes=a.minutes,
                         start=slot.start + timedelta(minutes=a.offset_minutes),
                         end=slot.start + timedelta(minutes=a.offset_minutes + a.minutes),
+                        current_step=today_step.get(str(a.goal_id)),
                     )
                     for a in plan
                 ],

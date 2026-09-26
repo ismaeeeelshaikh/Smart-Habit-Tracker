@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app.ai.goal_steps import propose_steps
 from app.ai.goal_suggest import suggest_goals
 from app.ai.groq import AIUnavailable
 from app.api import deps
@@ -14,6 +15,8 @@ from app.db.models import Goal as GoalModel
 from app.db.models import ScheduleBlock, User
 from app.schemas.goal import (
     Goal,
+    GoalBreakdownRequest,
+    GoalBreakdownResponse,
     GoalCreate,
     GoalSuggestion,
     GoalSuggestRequest,
@@ -122,6 +125,26 @@ async def suggest(
         ],
         skipped=skipped,
     )
+
+
+@router.post("/{goal_id}/breakdown", response_model=GoalBreakdownResponse)
+@limiter.limit("10/minute")
+async def break_down(
+    *,
+    request: Request,
+    goal_id: UUID,
+    payload: GoalBreakdownRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """Propose ordered steps for a goal. Saves nothing — the user edits them
+    and saves with the ordinary update call."""
+    goal = await _get_owned_goal(db, goal_id, current_user)
+    try:
+        steps = await propose_steps(goal.name, goal.estimated_duration_minutes, payload.note)
+    except AIUnavailable as err:
+        raise HTTPException(status_code=503, detail=str(err)) from err
+    return GoalBreakdownResponse(steps=steps)
 
 
 @router.put("/{goal_id}", response_model=Goal)

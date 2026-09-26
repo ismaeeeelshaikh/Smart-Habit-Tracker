@@ -143,6 +143,12 @@ def format_free(slots: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def task_line(allocation: dict[str, Any]) -> str:
+    """"DSA practice — today: Strings" once a goal has steps; the name otherwise."""
+    step = allocation.get("current_step")
+    return f"{allocation['goal_name']} — today: {step}" if step else allocation["goal_name"]
+
+
 def format_suggestion(suggestion: dict[str, Any], name: str = "") -> str:
     """The proactive reminder shape from Section 12.1, reused by /next."""
     slot = suggestion.get("slot")
@@ -158,7 +164,7 @@ def format_suggestion(suggestion: dict[str, Any], name: str = "") -> str:
         f"{greeting}"
         f"You have a free {duration(slot['duration_minutes'])} slot "
         f"at {clock(slot['start'])}.\n\n"
-        f"Suggested task: {first['goal_name']}\n"
+        f"Suggested task: {task_line(first)}\n"
         f"Estimated time: {duration(first['minutes'])}\n\n"
         f"Start now?"
     )

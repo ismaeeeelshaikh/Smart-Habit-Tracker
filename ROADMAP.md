@@ -107,7 +107,7 @@ Three things this must do, or it will cause more work than it saves:
 
 ---
 
-## Phase 4 — Suggest habits worth building (suggesting goals ✅ done; breaking a goal into steps next)
+## ~~Phase 4 — Suggest habits worth building~~ ✅ done
 
 Right now you have to know what you want. The app could help:
 

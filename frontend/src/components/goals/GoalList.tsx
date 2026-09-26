@@ -3,6 +3,7 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { InlineConfirm } from '../ui/InlineConfirm';
 import { GoalForm } from './GoalForm';
+import { GoalSteps } from './GoalSteps';
 import type { Goal, GoalCreate, GoalUpdate } from '../../types';
 
 interface GoalListProps {
@@ -69,7 +70,8 @@ export const GoalList: React.FC<GoalListProps> = ({ goals, onAddGoal, onEditGoal
                                 onCancel={() => setEditingGoalId(null)}
                             />
                         ) : (
-                            <div className={`flex items-center justify-between p-4 rounded-lg border bg-card transition-colors ${!goal.is_active ? 'opacity-60 border-border bg-muted/20' : 'border-border hover:border-primary/50'}`}>
+                            <div className={`flex flex-col gap-3 p-4 rounded-lg border bg-card transition-colors ${!goal.is_active ? 'opacity-60 border-border bg-muted/20' : 'border-border hover:border-primary/50'}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex flex-col gap-1.5">
                                     <div className="flex items-center gap-2">
                                         <span className={`font-medium ${!goal.is_active && 'line-through text-muted-foreground'}`}>
@@ -112,6 +114,8 @@ export const GoalList: React.FC<GoalListProps> = ({ goals, onAddGoal, onEditGoal
                                         <Button variant="secondary" className="text-sm px-3 py-1.5 h-auto">Delete</Button>
                                     </InlineConfirm>
                                 </div>
+                            </div>
+                            <GoalSteps goal={goal} onSave={(steps) => onEditGoal(goal.id, { steps })} />
                             </div>
                         )}
                     </div>

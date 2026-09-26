@@ -18,7 +18,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
@@ -165,6 +165,10 @@ class Goal(Base):
     priority = Column(Enum(PriorityEnum, name='priority_enum'), nullable=False)
     estimated_duration_minutes = Column(Integer, nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
+    # A big goal broken into pieces a session can finish, in order:
+    # [{"title": "Arrays & two pointers", "done": false}, ...]. The first one
+    # not done is "today's" step, named in the suggestion that goes out.
+    steps = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"), default=list)
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
 

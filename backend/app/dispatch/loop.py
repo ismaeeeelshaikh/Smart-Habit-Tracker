@@ -155,12 +155,18 @@ def duration(minutes: int) -> str:
     return f"{hours} hr" if rest == 0 else f"{hours} hr {rest} min"
 
 
+def task_line(allocation: dict) -> str:
+    """"DSA practice — today: Strings" once a goal has steps; the name otherwise."""
+    step = allocation.get("current_step")
+    return f"{allocation['goal_name']} — today: {step}" if step else allocation["goal_name"]
+
+
 def build_message(allocation: dict, slot: dict) -> str:
     """Section 12.1's shape, minus the name — the scheduler has no display name."""
     return (
         f"You have a free {duration(slot['duration_minutes'])} slot at "
         f"{clock(allocation['start'])}.\n\n"
-        f"Suggested task: {allocation['goal_name']}\n"
+        f"Suggested task: {task_line(allocation)}\n"
         f"Estimated time: {duration(allocation['minutes'])}\n\n"
         f"Start now?"
     )

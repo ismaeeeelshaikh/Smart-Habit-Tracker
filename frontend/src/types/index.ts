@@ -87,6 +87,12 @@ export interface ScheduleDraft {
     skipped: string[];
 }
 
+/** One piece of a bigger goal. The first one not done is "today's". */
+export interface GoalStep {
+    title: string;
+    done: boolean;
+}
+
 export interface Goal {
     id: string;
     user_id: string;
@@ -94,6 +100,7 @@ export interface Goal {
     priority: Priority;
     estimated_duration_minutes: number;
     is_active: boolean;
+    steps: GoalStep[];
 }
 
 export interface GoalCreate {
@@ -103,7 +110,10 @@ export interface GoalCreate {
     is_active?: boolean;
 }
 
-export type GoalUpdate = Partial<GoalCreate>;
+export type GoalUpdate = Partial<GoalCreate> & {
+    /** Replaces the whole list. */
+    steps?: GoalStep[];
+};
 
 /** A proposed goal, sized to the user's free time. Nothing is saved until added. */
 export interface GoalSuggestion {
