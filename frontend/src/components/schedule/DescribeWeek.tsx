@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Mic, Square } from 'lucide-react';
-import { createScheduleBlocks, draftScheduleBlocks } from '../../api';
+import { FileUp, Mic, Square } from 'lucide-react';
+import { createScheduleBlocks, draftScheduleBlocks, draftScheduleFromPdf } from '../../api';
 import { isVoiceSupported, useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import type { ScheduleBlockCreate, ScheduleDraftBlock } from '../../types';
 import { formatTimeRange } from '../../utils/time';
@@ -39,6 +39,8 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
     const [isReading, setIsReading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [reminder, setReminder] = useState<string>('10');
+    const [pdf, setPdf] = useState<File | null>(null);
+    const [choices, setChoices] = useState('');
 
     // Spoken words land in the box, after whatever was typed, for checking.
     const voice = useVoiceRecorder((heard) =>
@@ -46,11 +48,11 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
     );
     const canUseVoice = isVoiceSupported();
 
-    const read = async () => {
+    const preview = async (fetchDraft: () => Promise<{ blocks: ScheduleDraftBlock[]; skipped: string[] }>) => {
         setError(null);
         setIsReading(true);
         try {
-            const result = await draftScheduleBlocks(text);
+            const result = await fetchDraft();
             setDraft(result.blocks);
             setSkipped(result.skipped);
         } catch (err) {
@@ -60,6 +62,11 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
         } finally {
             setIsReading(false);
         }
+    };
+
+    const read = () => preview(() => draftScheduleBlocks(text));
+    const readPdf = () => {
+        if (pdf) preview(() => draftScheduleFromPdf(pdf, choices));
     };
 
     const save = async () => {
@@ -80,6 +87,7 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
             setDraft(null);
             setSkipped([]);
             setText('');
+            setPdf(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Couldn't save those blocks.");
         } finally {
@@ -138,8 +146,45 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                     </Button>
                 )}
                 <Button onClick={read} disabled={isReading || !text.trim() || voice.state !== 'idle'}>
-                    {isReading ? 'Previewing…' : 'Preview schedule'}
+                    {isReading && !pdf ? 'Previewing…' : 'Preview schedule'}
                 </Button>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-border pt-3">
+                <p className="text-sm font-medium">Have your college timetable as a PDF?</p>
+                <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-2 cursor-pointer rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm hover:border-[var(--color-free)] focus-within:ring-[3px] focus-within:ring-[var(--color-free-tint)]">
+                        <FileUp aria-hidden="true" className="h-4 w-4" />
+                        <span className="min-w-0 truncate max-w-[14rem]">{pdf ? pdf.name : 'Choose PDF'}</span>
+                        <input
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            aria-label="Timetable PDF"
+                            className="sr-only"
+                            onChange={(e) => setPdf(e.target.files?.[0] ?? null)}
+                        />
+                    </label>
+                    <input
+                        aria-label="Your batch and electives"
+                        name="timetable-choices"
+                        autoComplete="off"
+                        value={choices}
+                        onChange={(e) => setChoices(e.target.value)}
+                        placeholder="Your batch and electives, e.g. C1, CSL, AI-ML, IS…"
+                        maxLength={500}
+                        className="flex-1 min-w-[12rem] h-10 rounded-md border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
+                    />
+                    <Button
+                        variant="secondary"
+                        onClick={readPdf}
+                        disabled={isReading || !pdf || !choices.trim()}
+                    >
+                        {isReading && pdf ? 'Previewing…' : 'Preview timetable'}
+                    </Button>
+                </div>
+                <p className="text-[13px] text-muted-foreground">
+                    Timetables list every batch's lab in one cell, so say which batch and electives are yours.
+                </p>
             </div>
 
             <div aria-live="polite" className="sr-only">

@@ -1,12 +1,13 @@
 from datetime import UTC, datetime, time
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.ai.groq import AIUnavailable, transcribe
 from app.ai.schedule_draft import draft_from_text
+from app.ai.timetable_pdf import TimetableUnreadable, draft_from_pdf
 from app.api import deps
 from app.core.rate_limit import limiter
 from app.db.database import get_db
@@ -156,6 +157,41 @@ async def draft_schedule_blocks(
     return ScheduleDraftResponse(
         blocks=[block.as_dict() for block in blocks], skipped=skipped
     )
+
+
+# A one-page timetable is well under 1 MB.
+MAX_PDF_BYTES = 5 * 1024 * 1024
+
+
+@router.post("/draft-pdf", response_model=ScheduleDraftResponse)
+@limiter.limit("10/minute")
+async def draft_schedule_from_pdf(
+    *,
+    request: Request,
+    file: UploadFile = File(...),
+    choices: str = Form(..., max_length=500),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """Read a college timetable PDF into proposed blocks. Saves nothing.
+
+    `choices` is the student's batch and electives in their own words
+    ("C1, CSL, AI-ML, IS"): a timetable prints every batch's lab in one cell,
+    and only the student knows which one is theirs.
+    """
+    content = await file.read(MAX_PDF_BYTES + 1)
+    if len(content) > MAX_PDF_BYTES:
+        raise HTTPException(status_code=413, detail="That PDF is too big. Upload just the timetable page.")
+    if not content.startswith(b"%PDF"):
+        raise HTTPException(status_code=422, detail="That file isn't a PDF.")
+
+    try:
+        blocks, skipped = await draft_from_pdf(content, choices)
+    except TimetableUnreadable as err:
+        raise HTTPException(status_code=422, detail=str(err)) from err
+    except AIUnavailable as err:
+        raise HTTPException(status_code=503, detail=str(err)) from err
+
+    return ScheduleDraftResponse(blocks=[block.as_dict() for block in blocks], skipped=skipped)
 
 
 # Two minutes of speech is a few hundred KB; this is generous without letting

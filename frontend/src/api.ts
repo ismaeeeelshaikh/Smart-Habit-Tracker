@@ -202,6 +202,22 @@ export const transcribeWeek = (audio: Blob, filename: string): Promise<{ text: s
     );
 };
 
+/**
+ * Reads a college timetable PDF into proposed blocks. `choices` is the
+ * student's batch and electives in their own words ("C1, CSL, AI-ML, IS"):
+ * the PDF prints every batch's lab in one cell. Saves nothing.
+ */
+export const draftScheduleFromPdf = (file: File, choices: string): Promise<ScheduleDraft> => {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('choices', choices);
+    return request<ScheduleDraft>(
+        '/api/schedule/draft-pdf',
+        { method: 'POST', body: form },
+        "Couldn't read that timetable. Describe your week above instead.",
+    );
+};
+
 /** Saves a reviewed draft. All of it, or none of it. */
 export const createScheduleBlocks = (blocks: ScheduleBlockCreate[]): Promise<ScheduleBlock[]> =>
     request<ScheduleBlock[]>(

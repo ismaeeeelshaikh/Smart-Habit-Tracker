@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { InlineConfirm } from '../ui/InlineConfirm';
 import { ScheduleForm } from './ScheduleForm';
@@ -15,6 +16,9 @@ const DAYS: { id: DayOfWeek; label: string }[] = [
     { id: 'sun', label: 'Sunday' },
 ];
 
+/** Today's day key, in the same order as the list above (Monday first). */
+const todayKey = (): DayOfWeek => DAYS[(new Date().getDay() + 6) % 7].id;
+
 interface ScheduleListProps {
     blocks: ScheduleBlock[];
     onAddBlock: (day: DayOfWeek, data: ScheduleBlockCreate) => Promise<unknown>;
@@ -27,8 +31,20 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
     // 'day' opens the same form with no clock: it marks the whole day instead.
     const [addingMode, setAddingMode] = useState<'block' | 'day'>('block');
     const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+    // A real week is dozens of blocks; only today starts open so the page stays
+    // a list of days rather than one long scroll.
+    const [openDays, setOpenDays] = useState<Set<DayOfWeek>>(() => new Set([todayKey()]));
+
+    const setOpen = (day: DayOfWeek, open: boolean) =>
+        setOpenDays((prev) => {
+            const next = new Set(prev);
+            if (open) next.add(day);
+            else next.delete(day);
+            return next;
+        });
 
     const startAdding = (day: DayOfWeek, mode: 'block' | 'day') => {
+        setOpen(day, true);
         setAddingDay(day);
         setAddingMode(mode);
         setEditingBlockId(null);
@@ -58,10 +74,38 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
                     return 0;
                 });
 
+                const isOpen = openDays.has(day.id);
+                const panelId = `schedule-day-${day.id}`;
+
                 return (
                     <div key={day.id} className="border border-border rounded-lg bg-card overflow-hidden">
-                        <div className="flex items-center justify-between p-4 bg-muted/30 border-b border-border">
-                            <h3 className="font-semibold text-lg">{day.label}</h3>
+                        <div
+                            className={`flex flex-wrap items-center justify-between gap-2 p-4 bg-muted/30 ${
+                                isOpen ? 'border-b border-border' : ''
+                            }`}
+                        >
+                            <h3 className="font-semibold text-lg">
+                                <button
+                                    type="button"
+                                    onClick={() => setOpen(day.id, !isOpen)}
+                                    aria-expanded={isOpen}
+                                    aria-controls={panelId}
+                                    className="inline-flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
+                                >
+                                    <ChevronDown
+                                        aria-hidden="true"
+                                        className={`h-5 w-5 transition-transform motion-reduce:transition-none ${
+                                            isOpen ? '' : '-rotate-90'
+                                        }`}
+                                    />
+                                    {day.label}
+                                    <span className="text-sm font-normal text-muted-foreground">
+                                        {dayBlocks.length === 0
+                                            ? '· free'
+                                            : `· ${dayBlocks.length} ${dayBlocks.length === 1 ? 'block' : 'blocks'}`}
+                                    </span>
+                                </button>
+                            </h3>
                             <div className="flex items-center gap-2">
                                 <Button
                                     variant="secondary"
@@ -80,7 +124,7 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
                             </div>
                         </div>
                         
-                        <div className="p-4 flex flex-col gap-3">
+                        <div id={panelId} hidden={!isOpen} className="p-4 flex flex-col gap-3">
                             {dayBlocks.length === 0 && addingDay !== day.id && (
                                 <p className="text-muted-foreground text-sm py-2">
                                     No commitments on {day.label}. Add one or leave it free.
