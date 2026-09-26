@@ -247,41 +247,48 @@ describe('DescribeWeek — a timetable PDF', () => {
 
     const timetable = () => new File(['%PDF-1.7'], 'timetable.pdf', { type: 'application/pdf' });
 
-    it('waits for both the file and the batch before it will preview', async () => {
+    it('waits for a file before it will preview', async () => {
         mockFetch({});
         render(<DescribeWeek onSaved={vi.fn()} />);
         const button = screen.getByRole('button', { name: 'Preview timetable' });
 
         expect(button).toBeDisabled();
         await userEvent.upload(screen.getByLabelText('Timetable PDF'), timetable());
-        expect(button).toBeDisabled();
-        await userEvent.type(screen.getByLabelText('Your batch and electives'), 'C1, IS');
         expect(button).toBeEnabled();
+        expect(screen.getByText('timetable.pdf')).toBeInTheDocument();
     });
 
-    it('sends the file with the batch and shows the same preview to confirm', async () => {
+    it('sends the file and shows every option for the user to prune', async () => {
         const fetchMock = mockFetch({
             '/api/schedule/draft-pdf': {
                 body: {
-                    blocks: [{ day_of_week: 'mon', label: 'DSL lab', start_time: '12:50:00', end_time: '14:40:00' }],
+                    blocks: [
+                        { day_of_week: 'mon', label: 'DSL / IOE / ROSPL lab', start_time: '12:50:00', end_time: '14:40:00' },
+                        { day_of_week: 'tue', label: 'STQA', start_time: '13:45:00', end_time: '14:40:00' },
+                    ],
                     skipped: [],
                 },
             },
+            '/api/schedule/bulk': { status: 201, body: [] },
         });
         render(<DescribeWeek onSaved={vi.fn()} />);
 
         await userEvent.upload(screen.getByLabelText('Timetable PDF'), timetable());
-        await userEvent.type(screen.getByLabelText('Your batch and electives'), 'C1, CSL, AI-ML, IS');
         await userEvent.click(screen.getByRole('button', { name: 'Preview timetable' }));
 
-        expect(await screen.findByText('DSL lab')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Save 1 block' })).toBeInTheDocument();
-
+        expect(await screen.findByText('DSL / IOE / ROSPL lab')).toBeInTheDocument();
         const call = fetchMock.mock.calls.find(([url]) => String(url).includes('/api/schedule/draft-pdf'));
         expect(call).toBeDefined();
-        const form = (call![1] as RequestInit).body as FormData;
-        expect((form.get('file') as File).name).toBe('timetable.pdf');
-        expect(form.get('choices')).toBe('C1, CSL, AI-ML, IS');
+        expect(((call![1] as RequestInit).body as FormData).get('file')).toBeInstanceOf(File);
+
+        // An elective that isn't theirs goes before saving.
+        await userEvent.click(screen.getByRole('button', { name: 'Remove STQA' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Save 1 block' }));
+        await waitFor(() =>
+            expect(bodyOf(fetchMock, '/api/schedule/bulk').blocks.map((b: { label: string }) => b.label)).toEqual([
+                'DSL / IOE / ROSPL lab',
+            ]),
+        );
     });
 
     it('explains a PDF it could not read', async () => {
@@ -294,7 +301,6 @@ describe('DescribeWeek — a timetable PDF', () => {
         render(<DescribeWeek onSaved={vi.fn()} />);
 
         await userEvent.upload(screen.getByLabelText('Timetable PDF'), timetable());
-        await userEvent.type(screen.getByLabelText('Your batch and electives'), 'C1');
         await userEvent.click(screen.getByRole('button', { name: 'Preview timetable' }));
 
         expect(await screen.findByText(/couldn't find a timetable grid/)).toBeInTheDocument();

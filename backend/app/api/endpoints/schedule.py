@@ -1,7 +1,8 @@
 from datetime import UTC, datetime, time
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -169,14 +170,13 @@ async def draft_schedule_from_pdf(
     *,
     request: Request,
     file: UploadFile = File(...),
-    choices: str = Form(..., max_length=500),
     current_user: User = Depends(deps.get_current_user),
 ):
     """Read a college timetable PDF into proposed blocks. Saves nothing.
 
-    `choices` is the student's batch and electives in their own words
-    ("C1, CSL, AI-ML, IS"): a timetable prints every batch's lab in one cell,
-    and only the student knows which one is theirs.
+    No model is involved, so this works when Groq is down. Every batch's and
+    elective's option is kept ("DSL / IOE / ROSPL lab"): the time is busy
+    whichever is yours, and a slot that isn't yours is removed in the preview.
     """
     content = await file.read(MAX_PDF_BYTES + 1)
     if len(content) > MAX_PDF_BYTES:
@@ -185,11 +185,10 @@ async def draft_schedule_from_pdf(
         raise HTTPException(status_code=422, detail="That file isn't a PDF.")
 
     try:
-        blocks, skipped = await draft_from_pdf(content, choices)
+        # Parsing a PDF is CPU work; keep it off the event loop.
+        blocks, skipped = await run_in_threadpool(draft_from_pdf, content)
     except TimetableUnreadable as err:
         raise HTTPException(status_code=422, detail=str(err)) from err
-    except AIUnavailable as err:
-        raise HTTPException(status_code=503, detail=str(err)) from err
 
     return ScheduleDraftResponse(blocks=[block.as_dict() for block in blocks], skipped=skipped)
 

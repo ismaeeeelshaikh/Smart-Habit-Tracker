@@ -40,7 +40,6 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [reminder, setReminder] = useState<string>('10');
     const [pdf, setPdf] = useState<File | null>(null);
-    const [choices, setChoices] = useState('');
 
     // Spoken words land in the box, after whatever was typed, for checking.
     const voice = useVoiceRecorder((heard) =>
@@ -66,7 +65,7 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
 
     const read = () => preview(() => draftScheduleBlocks(text));
     const readPdf = () => {
-        if (pdf) preview(() => draftScheduleFromPdf(pdf, choices));
+        if (pdf) preview(() => draftScheduleFromPdf(pdf));
     };
 
     const save = async () => {
@@ -164,26 +163,13 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                             onChange={(e) => setPdf(e.target.files?.[0] ?? null)}
                         />
                     </label>
-                    <input
-                        aria-label="Your batch and electives"
-                        name="timetable-choices"
-                        autoComplete="off"
-                        value={choices}
-                        onChange={(e) => setChoices(e.target.value)}
-                        placeholder="Your batch and electives, e.g. C1, CSL, AI-ML, IS…"
-                        maxLength={500}
-                        className="flex-1 min-w-[12rem] h-10 rounded-md border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
-                    />
-                    <Button
-                        variant="secondary"
-                        onClick={readPdf}
-                        disabled={isReading || !pdf || !choices.trim()}
-                    >
+                    <Button variant="secondary" onClick={readPdf} disabled={isReading || !pdf}>
                         {isReading && pdf ? 'Previewing…' : 'Preview timetable'}
                     </Button>
                 </div>
                 <p className="text-[13px] text-muted-foreground">
-                    Timetables list every batch's lab in one cell, so say which batch and electives are yours.
+                    Every batch's and elective's option is listed, like "DSL / IOE / ROSPL lab". Remove any
+                    class that isn't yours before saving.
                 </p>
             </div>
 

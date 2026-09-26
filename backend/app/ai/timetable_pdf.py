@@ -1,33 +1,28 @@
-"""Read a college timetable PDF into schedule rows.
+"""Read a college timetable PDF into schedule rows — no model involved.
 
-Two halves, deliberately unequal:
+pdfplumber recovers the table cell by cell, including cells merged across
+several periods (a two-hour lab), so days and times come straight from the
+page. Labels are tidied by rule: rooms and teachers dropped, one line per
+option.
 
-1. **The grid is read by code, not by the model.** pdfplumber recovers the
-   table cell by cell, including cells merged across several periods (a two
-   hour lab). Days and times come only from here, so a model can never invent
-   or shift a time.
-2. **The model only chooses.** A cell like "DSL / IOE / ROSPL  C1/C2/C3" holds
-   three batches' labs; which one is this person's depends on their batch and
-   electives, which they state in plain words. The model returns, per slot,
-   the one subject that is theirs — or nothing.
+A cell often holds every batch's or elective's option ("DSL / IOE / ROSPL
+lab"). All of them are kept: the time is busy whichever one is yours, which is
+what free-time detection needs, and a slot that isn't yours at all (an elective
+you didn't take) is one tap to remove in the preview — or later, the first
+time it warns you.
 
 Only text-based PDFs work. A scanned photo of a timetable has no table to
 read, and is refused with a sentence saying so rather than guessed at.
 """
 
 import io
-import logging
 import re
 from dataclasses import dataclass
 from datetime import time
 
-from app.ai.groq import AIUnavailable, complete_json
 from app.ai.schedule_draft import MAX_LABEL_LENGTH, DraftBlock, validate
 
-log = logging.getLogger(__name__)
-
 MAX_PAGES = 3
-MAX_CHOICES_LENGTH = 500
 
 DAY_NAMES = {
     "mon": "mon", "monday": "mon",
@@ -42,6 +37,12 @@ DAY_NAMES = {
 # "8.10 - 9.05", "1.45-2.40", "10.00 -\n10.20", "9:05 - 10:00"
 TIME_RANGE = re.compile(r"(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:](\d{2})")
 BREAK = re.compile(r"\bbreak\b|\brecess\b|\blunch\b", re.I)
+# "C1/C2/C3" — one practical per batch, so the slot is a lab.
+BATCHES = re.compile(r"^(?:[A-Z]\d\s*/\s*)+[A-Z]\d$")
+HONORS = re.compile(r"^honou?rs?$", re.I)
+PARENTHESES = re.compile(r"\([^)]*\)")
+ROOM = re.compile(r"^\d{2,4}[A-Z]?$")
+PREFIX = re.compile(r"^(?:ILO|DLO|OE)\s*:\s*", re.I)
 
 
 @dataclass
@@ -78,10 +79,6 @@ def _header_times(row: list) -> dict[int, tuple[time, time]] | None:
     return periods if len(periods) >= 3 else None
 
 
-def _clean(cell: str) -> str:
-    return " ".join(cell.split())
-
-
 def _break_columns(table: list[list], periods: dict[int, tuple[time, time]]) -> set[int]:
     """Columns that are a break for the whole week.
 
@@ -95,6 +92,38 @@ def _break_columns(table: list[list], periods: dict[int, tuple[time, time]]) -> 
         for row in table
         if index < len(row) and row[index] and BREAK.search(str(row[index]))
     }
+
+
+def label_for(cell: str) -> str:
+    """"DSL(PV-304C)/ IOE(CS-301)\\nC1/C2/C3" -> "DSL / IOE lab".
+
+    Rooms, teachers and batch codes are what make a timetable cell long; none
+    of them is what someone needs to read in a reminder.
+    """
+    is_lab = is_honors = False
+    options: list[str] = []
+
+    for line in cell.splitlines():
+        line = " ".join(PARENTHESES.sub(" ", line).split())
+        if not line or ROOM.match(line):
+            continue
+        if BATCHES.match(line.replace(" ", "")):
+            is_lab = True
+            continue
+        if HONORS.match(line):
+            is_honors = True
+            continue
+        for option in line.split("/"):
+            option = " ".join(PREFIX.sub("", option).split())
+            if option and not ROOM.match(option):
+                options.append(option)
+
+    label = " / ".join(options) or " ".join(cell.split())
+    if is_lab and "lab" not in label.lower():
+        label += " lab"
+    if is_honors:
+        label = f"Honors: {label}"
+    return label[:MAX_LABEL_LENGTH]
 
 
 def slots_from_table(table: list[list]) -> list[Slot]:
@@ -140,7 +169,7 @@ def slots_from_table(table: list[list]) -> list[Slot]:
                 slots.append(current)
                 current = None
 
-            text = _clean(cell or "")
+            text = (cell or "").strip()
             if text and not BREAK.search(text):
                 current = Slot(day, start, end, text)
 
@@ -161,7 +190,9 @@ def read_slots(pdf_bytes: bytes) -> list[Slot]:
     slots: list[Slot] = []
     with pdf:
         if len(pdf.pages) > MAX_PAGES:
-            raise TimetableUnreadable(f"That PDF has more than {MAX_PAGES} pages. Upload just the timetable page.")
+            raise TimetableUnreadable(
+                f"That PDF has more than {MAX_PAGES} pages. Upload just the timetable page."
+            )
         for page in pdf.pages:
             for table in page.extract_tables():
                 slots.extend(slots_from_table(table))
@@ -174,79 +205,31 @@ def read_slots(pdf_bytes: bytes) -> list[Slot]:
     return slots
 
 
-SYSTEM_PROMPT = f"""You help one student read their college timetable.
-
-You get a numbered list of class slots. A slot often holds options for several
-batches or electives, e.g. "DSL (PV-304C)/ IOE (CS-301)/ ROSPL (SK-317) C1/C2/C3"
-means batch C1 has DSL, C2 has IOE, C3 has ROSPL. "ILO: CSL / MIS" and
-"IS / STQA" are elective choices. "HONOR CS / AI-ML" is an honors choice.
-
-The student says which batch and electives are theirs. For every slot, decide
-which single subject is theirs, or null if none of the options apply to them.
-
-Return JSON of exactly this shape:
-{{"slots": {{"1": "DSL lab", "2": null, "3": "IRS"}}}}
-
-Rules:
-- Use a short name the student will recognise, at most {MAX_LABEL_LENGTH} characters.
-  Leave out rooms, teachers and codes in brackets.
-- A slot split by batches (C1/C2/C3) is a practical: name it "<subject> lab",
-  e.g. "DSL lab". Honors slots are "<honors subject> honors", or "<honors
-  subject> lab" when marked LAB.
-- Electives come in groups. If a subject appears anywhere as one of the options
-  in an elective slot (e.g. "IS / STQA"), it is an elective everywhere, even in
-  a slot where it is printed alone: give it to the student only if they chose
-  it, otherwise null.
-- Any other slot with a single subject belongs to everyone: return it.
-- If the student's choices don't settle a slot, return null. Never guess.
-- Return every slot number. Return only the JSON object."""
-
-
-def _prompt(slots: list[Slot], choices: str) -> str:
-    listed = "\n".join(
-        f"{n}. {slot.day} {slot.start:%H:%M}-{slot.end:%H:%M}: {slot.text}"
-        for n, slot in enumerate(slots, start=1)
-    )
-    return f"My batch and electives: {choices}\n\nSlots:\n{listed}"
-
-
 def _join_adjacent(rows: list[dict]) -> list[dict]:
     """One four-hour Major Project, not two back-to-back halves of it."""
     joined: list[dict] = []
     for row in rows:
         last = joined[-1] if joined else None
-        if last and last["day"] == row["day"] and last["label"] == row["label"] and last["end"] == row["start"]:
+        if (
+            last
+            and last["day"] == row["day"]
+            and last["label"] == row["label"]
+            and last["end"] == row["start"]
+        ):
             last["end"] = row["end"]
         else:
             joined.append(dict(row))
     return joined
 
 
-async def draft_from_pdf(pdf_bytes: bytes, choices: str) -> tuple[list[DraftBlock], list[str]]:
-    slots = read_slots(pdf_bytes)
-
-    choices = choices.strip()[:MAX_CHOICES_LENGTH]
-    if not choices:
-        raise AIUnavailable("Say which batch and electives are yours first, e.g. C1, CSL, AI-ML, IS.")
-
-    answer = await complete_json(SYSTEM_PROMPT, _prompt(slots, choices))
-    picked = answer.get("slots") if isinstance(answer, dict) else None
-    if not isinstance(picked, dict):
-        raise AIUnavailable("The model's answer didn't make sense. Try again.")
-
-    # Times come from the grid, never from the model: it only names the subject.
-    rows = []
-    for n, slot in enumerate(slots, start=1):
-        label = picked.get(str(n))
-        if isinstance(label, str) and label.strip():
-            rows.append({
-                "day": slot.day,
-                "label": label.strip(),
-                "start": f"{slot.start:%H:%M}",
-                "end": f"{slot.end:%H:%M}",
-            })
-
-    blocks, skipped = validate(_join_adjacent(rows))
-    if not blocks and not skipped:
-        skipped.append("None of the slots matched your batch and electives. Check how you wrote them.")
-    return blocks, skipped
+def draft_from_pdf(pdf_bytes: bytes) -> tuple[list[DraftBlock], list[str]]:
+    rows = [
+        {
+            "day": slot.day,
+            "label": label_for(slot.text),
+            "start": f"{slot.start:%H:%M}",
+            "end": f"{slot.end:%H:%M}",
+        }
+        for slot in read_slots(pdf_bytes)
+    ]
+    return validate(_join_adjacent(rows))

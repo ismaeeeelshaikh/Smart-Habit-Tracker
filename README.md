@@ -187,7 +187,7 @@ used by every caller — same code, one implementation, deterministic output.
 
 ## Running the tests
 
-535 tests across three suites. CI runs all of them, plus image builds for x86
+540 tests across three suites. CI runs all of them, plus image builds for x86
 and ARM.
 
 ```bash
