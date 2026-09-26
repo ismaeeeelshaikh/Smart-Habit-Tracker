@@ -38,6 +38,9 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# datetime.weekday() order, matching the day_of_week enum.
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
 
 def user_now(user: User) -> datetime:
     """Current wall-clock time for the user, naive, in their own timezone.
@@ -192,12 +195,17 @@ async def get_next_suggestion(
         horizon_days=horizon_days,
     )
 
-    # A day off is a day the app leaves alone: nothing is suggested on it, even
-    # though its lectures make it look busy-then-free like any other.
+    # A day off or a quiet weekday is left alone: nothing is suggested on it,
+    # even though its lectures make it look busy-then-free like any other.
     days_off = await load_days_off(
         db, current_user, now.date(), now.date() + timedelta(days=horizon_days)
     )
-    slots = [slot for slot in slots if slot.start.date() not in days_off]
+    quiet = set(current_user.quiet_days or [])
+    slots = [
+        slot
+        for slot in slots
+        if slot.start.date() not in days_off and WEEKDAYS[slot.start.weekday()] not in quiet
+    ]
 
     if not slots:
         return NextSuggestionOut(

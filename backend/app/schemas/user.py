@@ -62,5 +62,7 @@ class UserResponse(UserBase):
     telegram_username: str | None = None
     # Backed by User.telegram_linked (a hybrid property on the model).
     telegram_linked: bool = False
+    # Weekdays the app stays quiet every week, "mon".."sun".
+    quiet_days: list[str] = []
 
     model_config = {"from_attributes": True}

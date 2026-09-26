@@ -15,6 +15,7 @@ export const makeUser = (overrides: Partial<User> = {}): User => ({
     day_end_time: '22:00:00',
     telegram_username: null,
     telegram_linked: false,
+    quiet_days: [],
     ...overrides,
 });
 

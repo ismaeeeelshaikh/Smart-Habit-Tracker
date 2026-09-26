@@ -755,3 +755,27 @@ class TestDaysOff:
 
         assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1
         assert "DBMS" in sender.notices[0]["text"]
+
+
+class TestQuietWeekdays:
+    """A weekday switched off behaves like a day off, every week."""
+
+    lecture = TestDaysOff.lecture
+    own_reminder = TestDaysOff.own_reminder
+
+    async def test_no_lecture_warning_on_a_quiet_weekday(self, sender):
+        backend = FakeBackend(blocks=[self.lecture()], quiet_days=[DAYS[NOW.weekday()]])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+        assert sender.notices == []
+
+    async def test_the_users_own_reminder_still_arrives(self, sender):
+        backend = FakeBackend(existing_reminders=[self.own_reminder()], quiet_days=[DAYS[NOW.weekday()]])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1
+
+    async def test_another_quiet_weekday_changes_nothing_today(self, sender):
+        other = DAYS[(NOW.weekday() + 1) % 7]
+        backend = FakeBackend(blocks=[self.lecture()], quiet_days=[other])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1

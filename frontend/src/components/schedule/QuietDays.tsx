@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { addDaysOff, deleteDayOff, getDaysOff } from '../../api';
-import type { DayOff } from '../../types';
+import type { DayOff, DayOfWeek } from '../../types';
 import { Button } from '../ui/Button';
 import { InlineConfirm } from '../ui/InlineConfirm';
 
@@ -40,17 +40,53 @@ const toStretches = (days: DayOff[]): Stretch[] => {
     return stretches;
 };
 
+const WEEK: { id: DayOfWeek; short: string; long: string }[] = [
+    { id: 'mon', short: 'Mon', long: 'Monday' },
+    { id: 'tue', short: 'Tue', long: 'Tuesday' },
+    { id: 'wed', short: 'Wed', long: 'Wednesday' },
+    { id: 'thu', short: 'Thu', long: 'Thursday' },
+    { id: 'fri', short: 'Fri', long: 'Friday' },
+    { id: 'sat', short: 'Sat', long: 'Saturday' },
+    { id: 'sun', short: 'Sun', long: 'Sunday' },
+];
+
+interface QuietDaysProps {
+    /** Weekdays already quiet, from the user's settings. */
+    quietDays: DayOfWeek[];
+    /** Saves the whole new set. */
+    onChangeQuietDays: (days: DayOfWeek[]) => Promise<unknown>;
+}
+
 const inputClass =
     'h-10 rounded-md border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]';
 
-export const DaysOff: React.FC = () => {
+/**
+ * One idea, two ways to say it: every week ("every Saturday") or on a date
+ * ("Diwali, 20–23 Oct"). Either way that day gets no lecture warnings and no
+ * suggestions, while reminders the user set themselves still arrive.
+ */
+export const QuietDays: React.FC<QuietDaysProps> = ({ quietDays, onChangeQuietDays }) => {
     const [days, setDays] = useState<DayOff[]>([]);
     const [label, setLabel] = useState('');
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [pendingDay, setPendingDay] = useState<DayOfWeek | null>(null);
     const today = localIso(new Date());
+
+    const toggleWeekday = async (day: DayOfWeek) => {
+        setError(null);
+        setPendingDay(day);
+        const next = quietDays.includes(day) ? quietDays.filter((d) => d !== day) : [...quietDays, day];
+        try {
+            await onChangeQuietDays(next);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Couldn't save that. Please try again.");
+        } finally {
+            setPendingDay(null);
+        }
+    };
 
     const load = useCallback(async () => {
         try {
@@ -104,12 +140,42 @@ export const DaysOff: React.FC = () => {
     return (
         <section className="border border-border rounded-lg bg-card p-4 flex flex-col gap-3">
             <div>
-                <h2 className="font-semibold text-lg">Days off</h2>
+                <h2 className="font-semibold text-lg">Quiet days</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                    A festival, a trip, a sick day. No lecture warnings and no suggestions that day — reminders
-                    you set yourself still arrive.
+                    No lecture warnings and no suggestions on these days. Reminders you set yourself still
+                    arrive.
                 </p>
             </div>
+
+            <div className="flex flex-col gap-2">
+                <p className="text-sm font-medium" id="quiet-weekdays">
+                    Every week
+                </p>
+                <div role="group" aria-labelledby="quiet-weekdays" className="flex flex-wrap gap-2">
+                    {WEEK.map((day) => {
+                        const quiet = quietDays.includes(day.id);
+                        return (
+                            <button
+                                key={day.id}
+                                type="button"
+                                aria-pressed={quiet}
+                                aria-label={`${day.long}: ${quiet ? 'quiet' : 'notifications on'}`}
+                                disabled={pendingDay !== null}
+                                onClick={() => toggleWeekday(day.id)}
+                                className={`h-9 min-w-[3.25rem] rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)] disabled:opacity-60 ${
+                                    quiet
+                                        ? 'border-[var(--color-ink)] bg-[var(--color-ink)] text-white'
+                                        : 'border-[var(--color-border)] bg-white text-[var(--color-ink)] hover:border-[var(--color-free)]'
+                                }`}
+                            >
+                                {day.short}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <p className="text-sm font-medium border-t border-border pt-3">On dates</p>
 
             {stretches.length > 0 ? (
                 <ul className="flex flex-col gap-2">
@@ -143,10 +209,10 @@ export const DaysOff: React.FC = () => {
                     ))}
                 </ul>
             ) : (
-                <p className="text-sm text-muted-foreground">No days off coming up.</p>
+                <p className="text-sm text-muted-foreground">No dates coming up.</p>
             )}
 
-            <form onSubmit={add} className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
+            <form onSubmit={add} className="flex flex-wrap items-end gap-2">
                 <label className="flex flex-col gap-1 text-sm font-medium flex-1 min-w-[10rem]">
                     Name
                     <input

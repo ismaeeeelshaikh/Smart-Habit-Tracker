@@ -449,8 +449,14 @@ async def suggest_for_chat(
     return 1
 
 
-async def is_day_off(backend, token: str, now: datetime) -> bool:
-    """Has the user taken today off? `now` is already their own wall clock."""
+async def is_quiet(backend, token: str, now: datetime) -> bool:
+    """Is today off — a quiet weekday or a dated day off?
+
+    `now` is already the user's own wall clock.
+    """
+    me = await backend.request_as(token, "GET", "/auth/me")
+    if DAYS[now.weekday()] in ((me or {}).get("quiet_days") or []):
+        return True
     days_off = await backend.request_as(token, "GET", "/api/days-off/")
     today = now.date().isoformat()
     return any(day.get("date") == today for day in days_off or [])
@@ -468,10 +474,11 @@ async def dispatch_for_chat(backend, sender, chat: dict, now: datetime) -> int:
 
     token = await backend.token_for(chat_id)
 
-    # On a day off there is no lecture to warn about. Suggestions stop too,
-    # because /slots/next skips days off; the user's own reminders still go.
+    # On a day off or a quiet weekday there is no lecture to warn about.
+    # Suggestions stop too, because /slots/next skips both; the user's own
+    # reminders still go.
     notices = 0
-    if not await is_day_off(backend, token, now):
+    if not await is_quiet(backend, token, now):
         # What the user actually asked for comes first: a lecture about to start
         # beats anything the allocator thought of.
         notices = await deliver_block_reminders(

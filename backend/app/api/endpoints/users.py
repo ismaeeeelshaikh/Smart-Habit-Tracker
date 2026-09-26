@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.db.database import get_db
-from app.db.models import User
+from app.db.models import DayOfWeekEnum, User
 from app.schemas.user import UserResponse
 
 router = APIRouter()
@@ -19,6 +19,8 @@ class PreferencesUpdate(BaseModel):
     timezone: str | None = None
     day_start_time: time | None = None
     day_end_time: time | None = None
+    # Replaces the whole set: the client sends every quiet weekday it wants.
+    quiet_days: list[DayOfWeekEnum] | None = None
 
 
 @router.post("/me/complete-onboarding", response_model=UserResponse)
@@ -60,6 +62,11 @@ async def update_preferences(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Day end time must be after day start time.",
         )
+
+    if "quiet_days" in data:
+        # Stored in week order, once each, whatever order they arrived in.
+        chosen = {DayOfWeekEnum(day) for day in data["quiet_days"] or []}
+        data["quiet_days"] = [day.value for day in DayOfWeekEnum if day in chosen]
 
     for field, value in data.items():
         setattr(current_user, field, value)

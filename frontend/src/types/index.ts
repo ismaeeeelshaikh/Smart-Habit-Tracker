@@ -21,12 +21,16 @@ export interface User {
     day_end_time: string;
     telegram_username: string | null;
     telegram_linked: boolean;
+    /** Weekdays the app stays quiet every week: no lecture warnings, no suggestions. */
+    quiet_days: DayOfWeek[];
 }
 
 export interface PreferencesUpdate {
     timezone?: string;
     day_start_time?: string;
     day_end_time?: string;
+    /** Replaces the whole set. */
+    quiet_days?: DayOfWeek[];
 }
 
 export interface ScheduleBlock {

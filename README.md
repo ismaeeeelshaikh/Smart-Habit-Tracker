@@ -35,8 +35,7 @@ decides when you are free, so the same schedule always produces the same answer.
 
 ## What it does
 
-- **Finds your real free time.** Fixed blocks ("College, Mon 9–3") and loose
-  ones ("Sunday: family") both count. Gaps outside your active hours never get
+- **Finds your real free time.** Your fixed blocks ("College, Mon 9–3") count. Gaps outside your active hours never get
   suggested — nobody wants a 3am study reminder.
 - **Suggests by priority.** High-priority goals get the good slots; a 30-minute
   goal is not offered a 15-minute gap.
@@ -45,8 +44,9 @@ decides when you are free, so the same schedule always produces the same answer.
   your college's timetable PDF — so a timetable is a sentence or one upload
   rather than forty form submissions, and you see what it understood before
   anything is saved.
-- **Takes days off.** Mark Diwali or a trip once and that day gets no lecture
-  warnings and no suggestions — reminders you set yourself still arrive.
+- **Knows when to be quiet.** Switch off weekdays (every Saturday) or dates
+  (Diwali, a trip) and those days get no lecture warnings and no suggestions —
+  reminders you set yourself still arrive.
 - **Acts in one tap.** ✅ Done · ⏳ Later · ❌ Skip, straight from the message.
 - **Leaves you alone when you say so.** Later or Skip buys an hour of quiet.
   Only Done clears the way for the next suggestion.
@@ -189,7 +189,7 @@ used by every caller — same code, one implementation, deterministic output.
 
 ## Running the tests
 
-561 tests across three suites. CI runs all of them, plus image builds for x86
+577 tests across three suites. CI runs all of them, plus image builds for x86
 and ARM.
 
 ```bash

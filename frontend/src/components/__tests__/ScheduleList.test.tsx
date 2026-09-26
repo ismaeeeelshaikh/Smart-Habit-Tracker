@@ -23,9 +23,15 @@ const WEEK = [
     block({ day_of_week: 'tue', label: 'CSL' }),
 ];
 
-const renderList = (blocks = WEEK) =>
+const renderList = (blocks = WEEK, quietDays: ScheduleBlock['day_of_week'][] = []) =>
     render(
-        <ScheduleList blocks={blocks} onAddBlock={vi.fn()} onEditBlock={vi.fn()} onDeleteBlock={vi.fn()} />,
+        <ScheduleList
+            blocks={blocks}
+            onAddBlock={vi.fn()}
+            onEditBlock={vi.fn()}
+            onDeleteBlock={vi.fn()}
+            quietDays={quietDays}
+        />,
     );
 
 const dayToggle = (day: string) => screen.getByRole('button', { name: new RegExp(`^${day}`) });
@@ -77,5 +83,18 @@ describe('ScheduleList — one day at a time', () => {
 
         expect(dayToggle('Wednesday')).toHaveAttribute('aria-expanded', 'true');
         expect(screen.getByLabelText('Start Time')).toBeVisible();
+    });
+
+    it('offers only timed blocks — whole days live in Quiet days now', () => {
+        renderList();
+
+        expect(screen.queryByRole('button', { name: 'Mark whole day' })).not.toBeInTheDocument();
+    });
+
+    it('marks a quiet weekday on its header', () => {
+        renderList(WEEK, ['sat']);
+
+        expect(dayToggle('Saturday')).toHaveTextContent('quiet');
+        expect(dayToggle('Monday')).not.toHaveTextContent('quiet');
     });
 });

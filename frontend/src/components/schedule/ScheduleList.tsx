@@ -24,12 +24,18 @@ interface ScheduleListProps {
     onAddBlock: (day: DayOfWeek, data: ScheduleBlockCreate) => Promise<unknown>;
     onEditBlock: (id: string, data: ScheduleBlockUpdate) => Promise<unknown>;
     onDeleteBlock: (id: string) => Promise<unknown>;
+    /** Weekdays switched off in Quiet days, marked on their headers. */
+    quietDays?: DayOfWeek[];
 }
 
-export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, onEditBlock, onDeleteBlock }) => {
+export const ScheduleList: React.FC<ScheduleListProps> = ({
+    blocks,
+    onAddBlock,
+    onEditBlock,
+    onDeleteBlock,
+    quietDays = [],
+}) => {
     const [addingDay, setAddingDay] = useState<DayOfWeek | null>(null);
-    // 'day' opens the same form with no clock: it marks the whole day instead.
-    const [addingMode, setAddingMode] = useState<'block' | 'day'>('block');
     const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
     // A real week is dozens of blocks; only today starts open so the page stays
     // a list of days rather than one long scroll.
@@ -43,10 +49,9 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
             return next;
         });
 
-    const startAdding = (day: DayOfWeek, mode: 'block' | 'day') => {
+    const startAdding = (day: DayOfWeek) => {
         setOpen(day, true);
         setAddingDay(day);
-        setAddingMode(mode);
         setEditingBlockId(null);
     };
 
@@ -104,22 +109,20 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
                                             ? '· free'
                                             : `· ${dayBlocks.length} ${dayBlocks.length === 1 ? 'block' : 'blocks'}`}
                                     </span>
+                                    {quietDays.includes(day.id) && (
+                                        <span className="text-xs font-medium rounded-full border border-[var(--color-border)] px-2 py-0.5 text-muted-foreground">
+                                            quiet
+                                        </span>
+                                    )}
                                 </button>
                             </h3>
                             <div className="flex items-center gap-2">
                                 <Button
                                     variant="secondary"
                                     className="text-sm px-3 py-1.5 h-auto"
-                                    onClick={() => startAdding(day.id, 'block')}
+                                    onClick={() => startAdding(day.id)}
                                 >
                                     Add block
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    className="text-sm px-3 py-1.5 h-auto"
-                                    onClick={() => startAdding(day.id, 'day')}
-                                >
-                                    Mark whole day
                                 </Button>
                             </div>
                         </div>
@@ -189,7 +192,6 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
                             {addingDay === day.id && (
                                 <ScheduleForm
                                     dayOfWeek={day.id}
-                                    mode={addingMode}
                                     onSubmit={(data) => handleAddSubmit(day.id, data)}
                                     onCancel={() => setAddingDay(null)}
                                 />

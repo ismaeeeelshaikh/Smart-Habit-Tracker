@@ -18,7 +18,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
@@ -78,6 +78,10 @@ class User(Base):
     # Bounds the usable day: gaps outside these hours are never offered as slots.
     day_start_time = Column(Time, nullable=False, server_default=text("'08:00'"), default=time(8, 0))
     day_end_time = Column(Time, nullable=False, server_default=text("'22:00'"), default=time(22, 0))
+    # Weekdays the app stays quiet every week ("mon".."sun"): no lecture
+    # warnings and no suggestions. A weekend, usually. Reminders the user set
+    # themselves still arrive. The one-off version of this is DayOff.
+    quiet_days = Column(ARRAY(String(3)), nullable=False, server_default=text("'{}'"), default=list)
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), onupdate=func.now())
 

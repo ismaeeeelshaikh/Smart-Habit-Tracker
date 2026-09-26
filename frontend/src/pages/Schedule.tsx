@@ -1,11 +1,20 @@
-import { DaysOff } from '../components/schedule/DaysOff';
+import { updatePreferences } from '../api';
+import { QuietDays } from '../components/schedule/QuietDays';
 import { DescribeWeek } from '../components/schedule/DescribeWeek';
 import { ScheduleList } from '../components/schedule/ScheduleList';
+import { useAuth } from '../contexts/AuthContext';
 import { useScheduleBlocks } from '../hooks/useScheduleBlocks';
 import type { DayOfWeek, ScheduleBlockCreate } from '../types';
 
 export const Schedule = () => {
   const { blocks, isLoading, error, refetch, addBlock, editBlock, removeBlock } = useScheduleBlocks();
+  const { user, refreshUser } = useAuth();
+  const quietDays = user?.quiet_days ?? [];
+
+  const saveQuietDays = async (days: DayOfWeek[]) => {
+    await updatePreferences({ quiet_days: days });
+    await refreshUser();
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 max-w-4xl mx-auto mb-12">
@@ -28,10 +37,11 @@ export const Schedule = () => {
           onAddBlock={(_day: DayOfWeek, data: ScheduleBlockCreate) => addBlock(data)}
           onEditBlock={editBlock}
           onDeleteBlock={removeBlock}
+          quietDays={quietDays}
         />
       )}
 
-      <DaysOff />
+      <QuietDays quietDays={quietDays} onChangeQuietDays={saveQuietDays} />
     </div>
   );
 };
