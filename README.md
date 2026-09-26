@@ -41,8 +41,9 @@ decides when you are free, so the same schedule always produces the same answer.
 - **Suggests by priority.** High-priority goals get the good slots; a 30-minute
   goal is not offered a 15-minute gap.
 - **Delivers on Telegram**, so there is no app to open and nothing to remember.
-- **Reads your week in your own words**, so a timetable is a sentence rather
-  than forty form submissions — and shows you what it understood before saving.
+- **Reads your week in your own words**, typed or spoken, so a timetable is a
+  sentence rather than forty form submissions — and shows you what it
+  understood before saving.
 - **Acts in one tap.** ✅ Done · ⏳ Later · ❌ Skip, straight from the message.
 - **Leaves you alone when you say so.** Later or Skip buys an hour of quiet.
   Only Done clears the way for the next suggestion.
@@ -185,7 +186,7 @@ used by every caller — same code, one implementation, deterministic output.
 
 ## Running the tests
 
-491 tests across three suites. CI runs all of them, plus image builds for x86
+509 tests across three suites. CI runs all of them, plus image builds for x86
 and ARM.
 
 ```bash

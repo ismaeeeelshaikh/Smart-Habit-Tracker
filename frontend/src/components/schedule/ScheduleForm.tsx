@@ -73,8 +73,12 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({
                 setError('End time must be after start time.');
                 return;
             }
-            if (remindEnabled && (!Number.isInteger(minutes) || minutes < 1 || minutes > MAX_REMIND_BEFORE)) {
-                setError(`Remind me between 1 and ${MAX_REMIND_BEFORE} minutes before.`);
+            // 0 is "as it starts"; blank is not a number of minutes at all.
+            if (
+                remindEnabled &&
+                (remindBefore.trim() === '' || !Number.isInteger(minutes) || minutes < 0 || minutes > MAX_REMIND_BEFORE)
+            ) {
+                setError(`Remind me between 0 and ${MAX_REMIND_BEFORE} minutes before (0 means as it starts).`);
                 return;
             }
         }
@@ -108,7 +112,9 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({
                     id="block-label"
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
-                    placeholder={isWholeDay ? 'Day name' : 'Commitment name'}
+                    placeholder={isWholeDay ? 'Day name…' : 'Commitment name…'}
+                    name="block-label"
+                    autoComplete="off"
                     required
                 />
             </div>
@@ -193,7 +199,7 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({
                         <Input
                             aria-label="Minutes before it starts"
                             type="number"
-                            min={1}
+                            min={0}
                             max={MAX_REMIND_BEFORE}
                             value={remindBefore}
                             disabled={!remindEnabled}
@@ -201,7 +207,7 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({
                             className="w-20"
                         />
                         <span className="font-normal text-[var(--color-ink-muted)]">
-                            minutes before it starts
+                            minutes before it starts (0 = as it starts)
                         </span>
                     </div>
                 </>

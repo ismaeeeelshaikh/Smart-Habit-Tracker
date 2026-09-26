@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DescribeWeek } from '../schedule/DescribeWeek';
@@ -15,12 +15,13 @@ const oneBlock = {
 
 const describeWeek = async (text = DESCRIPTION) => {
     await userEvent.type(screen.getByLabelText('Describe your week'), text);
-    await userEvent.click(screen.getByRole('button', { name: 'Read this' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Preview schedule' }));
 };
 
 const bodyOf = (fetchMock: ReturnType<typeof mockFetch>, urlPart: string) => {
     const call = fetchMock.mock.calls.find(([url]) => String(url).includes(urlPart));
-    return JSON.parse((call?.[1] as RequestInit).body as string);
+    if (!call) throw new Error(`no request to ${urlPart}`);
+    return JSON.parse((call[1] as RequestInit).body as string);
 };
 
 describe('DescribeWeek', () => {
@@ -119,6 +120,124 @@ describe('DescribeWeek', () => {
         mockFetch(draftRoute(oneBlock));
         render(<DescribeWeek onSaved={vi.fn()} />);
 
-        expect(screen.getByRole('button', { name: 'Read this' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Preview schedule' })).toBeDisabled();
+    });
+
+    it.each([
+        ['On time', 0],
+        ['No reminder', null],
+    ])('saves the whole batch with the chosen reminder: %s', async (choice, expected) => {
+        const fetchMock = mockFetch({ ...draftRoute(oneBlock), '/api/schedule/bulk': { status: 201, body: [] } });
+        render(<DescribeWeek onSaved={vi.fn()} />);
+
+        await describeWeek();
+        await userEvent.selectOptions(await screen.findByLabelText('Remind me'), choice);
+        await userEvent.click(screen.getByRole('button', { name: 'Save 1 block' }));
+
+        await waitFor(() =>
+            expect(bodyOf(fetchMock, '/api/schedule/bulk').blocks[0].remind_before_minutes).toBe(expected),
+        );
+    });
+});
+
+describe('DescribeWeek — speaking instead of typing', () => {
+    class FakeRecorder {
+        static latest: FakeRecorder;
+        state: 'inactive' | 'recording' = 'inactive';
+        mimeType = 'audio/webm';
+        ondataavailable: ((e: { data: Blob }) => void) | null = null;
+        onstop: (() => void) | null = null;
+        constructor() {
+            FakeRecorder.latest = this;
+        }
+        start() {
+            this.state = 'recording';
+        }
+        stop() {
+            this.state = 'inactive';
+            this.ondataavailable?.({ data: new Blob(['sound'], { type: 'audio/webm' }) });
+            this.onstop?.();
+        }
+    }
+
+    const stopTrack = vi.fn();
+
+    const installMicrophone = (getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] })) => {
+        vi.stubGlobal('MediaRecorder', FakeRecorder);
+        Object.defineProperty(navigator, 'mediaDevices', {
+            configurable: true,
+            value: { getUserMedia },
+        });
+        return getUserMedia;
+    };
+
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        stopTrack.mockClear();
+    });
+
+    it('puts what was heard into the box for checking, and sends nothing else', async () => {
+        const fetchMock = mockFetch({ '/api/schedule/transcribe': { body: { text: 'Monday college 9 to 3' } } });
+        installMicrophone();
+        render(<DescribeWeek onSaved={vi.fn()} />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Speak' }));
+        expect(await screen.findByRole('button', { name: /Stop/ })).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: /Stop/ }));
+
+        await waitFor(() =>
+            expect(screen.getByLabelText('Describe your week')).toHaveValue('Monday college 9 to 3'),
+        );
+        expect(stopTrack).toHaveBeenCalled();
+        // Heard words wait for the user: nothing is drafted until they ask.
+        expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/schedule/draft'))).toBe(false);
+        const upload = fetchMock.mock.calls.find(([url]) => String(url).includes('/transcribe'));
+        expect(upload).toBeDefined();
+        expect((upload![1] as RequestInit).body).toBeInstanceOf(FormData);
+    });
+
+    it('adds to what was already typed rather than replacing it', async () => {
+        mockFetch({ '/api/schedule/transcribe': { body: { text: 'gym Tuesday 6 to 7' } } });
+        installMicrophone();
+        render(<DescribeWeek onSaved={vi.fn()} />);
+
+        await userEvent.type(screen.getByLabelText('Describe your week'), 'Monday college 9 to 3');
+        await userEvent.click(screen.getByRole('button', { name: 'Speak' }));
+        await userEvent.click(await screen.findByRole('button', { name: /Stop/ }));
+
+        await waitFor(() =>
+            expect(screen.getByLabelText('Describe your week')).toHaveValue(
+                'Monday college 9 to 3 gym Tuesday 6 to 7',
+            ),
+        );
+    });
+
+    it('explains a blocked microphone instead of failing quietly', async () => {
+        mockFetch({});
+        installMicrophone(vi.fn().mockRejectedValue(new DOMException('denied', 'NotAllowedError')));
+        render(<DescribeWeek onSaved={vi.fn()} />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Speak' }));
+
+        expect(await screen.findByText(/Microphone access is blocked/)).toBeInTheDocument();
+    });
+
+    it('says so when the voice service is down', async () => {
+        mockFetch({ '/api/schedule/transcribe': { status: 503, body: { detail: 'The model is busy right now.' } } });
+        installMicrophone();
+        render(<DescribeWeek onSaved={vi.fn()} />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Speak' }));
+        await act(async () => FakeRecorder.latest.stop());
+
+        expect(await screen.findByText('The model is busy right now.')).toBeInTheDocument();
+    });
+
+    it('hides the button where the browser cannot record', () => {
+        mockFetch({});
+        vi.stubGlobal('MediaRecorder', undefined);
+        render(<DescribeWeek onSaved={vi.fn()} />);
+
+        expect(screen.queryByRole('button', { name: 'Speak' })).not.toBeInTheDocument();
     });
 });

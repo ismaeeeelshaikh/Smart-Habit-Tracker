@@ -1,11 +1,11 @@
 from datetime import UTC, datetime, time
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.ai.groq import AIUnavailable
+from app.ai.groq import AIUnavailable, transcribe
 from app.ai.schedule_draft import draft_from_text
 from app.api import deps
 from app.core.rate_limit import limiter
@@ -19,6 +19,7 @@ from app.schemas.schedule import (
     ScheduleBulkCreate,
     ScheduleDraftRequest,
     ScheduleDraftResponse,
+    TranscriptOut,
 )
 
 router = APIRouter()
@@ -155,6 +156,42 @@ async def draft_schedule_blocks(
     return ScheduleDraftResponse(
         blocks=[block.as_dict() for block in blocks], skipped=skipped
     )
+
+
+# Two minutes of speech is a few hundred KB; this is generous without letting
+# someone post a film. Groq itself refuses anything past 25 MB.
+MAX_AUDIO_BYTES = 10 * 1024 * 1024
+
+
+@router.post("/transcribe", response_model=TranscriptOut)
+@limiter.limit("10/minute")
+async def transcribe_week(
+    *,
+    request: Request,
+    audio: UploadFile = File(...),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """Speech to text for describing a week out loud. Saves nothing.
+
+    The words come back into the text box rather than straight into a draft,
+    so a misheard "nine" can be fixed before anything reads it as a time.
+    """
+    content = await audio.read(MAX_AUDIO_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=422, detail="That recording was empty.")
+    if len(content) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="That recording is too long. Keep it under two minutes.")
+
+    try:
+        text = await transcribe(
+            content, audio.filename or "recording.webm", audio.content_type or "audio/webm"
+        )
+    except AIUnavailable as err:
+        raise HTTPException(status_code=503, detail=str(err)) from err
+
+    if not text:
+        raise HTTPException(status_code=422, detail="I couldn't hear anything in that. Try again.")
+    return TranscriptOut(text=text)
 
 
 @router.post("/bulk", response_model=list[ScheduleBlock], status_code=status.HTTP_201_CREATED)

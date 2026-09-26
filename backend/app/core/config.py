@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     # the form stays, and the API says so rather than failing oddly.
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "openai/gpt-oss-120b"
+    # Speech to text for describing a week out loud.
+    GROQ_TRANSCRIBE_MODEL: str = "whisper-large-v3-turbo"
     # A described week is one short request; waiting longer than this is worse
     # than telling the user to use the form.
     GROQ_TIMEOUT_SECONDS: float = 25.0

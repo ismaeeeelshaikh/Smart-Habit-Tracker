@@ -57,6 +57,12 @@ class ScheduleDraftResponse(BaseModel):
     skipped: list[str] = []
 
 
+class TranscriptOut(BaseModel):
+    """What was heard. It goes into the text box, where the user can fix it."""
+
+    text: str
+
+
 class ScheduleBulkCreate(BaseModel):
     """Saving a reviewed draft: all of it, or none of it."""
 

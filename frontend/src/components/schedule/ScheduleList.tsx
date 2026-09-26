@@ -107,7 +107,12 @@ export const ScheduleList: React.FC<ScheduleListProps> = ({ blocks, onAddBlock, 
                                                             : 'Whole day — committed'
                                                         : formatTimeRange(block.start_time ?? '', block.end_time ?? '')}
                                                     {!block.is_flexible_block && block.remind_before_minutes != null && (
-                                                        <span> · reminder {block.remind_before_minutes} min before</span>
+                                                        <span>
+                                                            {' · '}
+                                                            {block.remind_before_minutes === 0
+                                                                ? 'reminder as it starts'
+                                                                : `reminder ${block.remind_before_minutes} min before`}
+                                                        </span>
                                                     )}
                                                 </p>
                                             </div>

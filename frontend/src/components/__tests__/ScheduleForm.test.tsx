@@ -62,6 +62,20 @@ describe('ScheduleForm — a timed block', () => {
         expect(saved(onSubmit).remind_before_minutes).toBe(30);
     });
 
+    it('accepts 0 as a reminder right as it starts', async () => {
+        const onSubmit = vi.fn().mockResolvedValue(undefined);
+        render(<ScheduleForm dayOfWeek="thu" onSubmit={onSubmit} onCancel={noop} />);
+
+        await userEvent.type(screen.getByLabelText(/Label/), 'IRS');
+        await userEvent.type(screen.getByLabelText('Start Time'), '09:05');
+        await userEvent.type(screen.getByLabelText('End Time'), '10:00');
+        await userEvent.clear(screen.getByLabelText('Minutes before it starts'));
+        await userEvent.type(screen.getByLabelText('Minutes before it starts'), '0');
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(saved(onSubmit).remind_before_minutes).toBe(0);
+    });
+
     it('refuses to save a blank lead time while the reminder is on', async () => {
         /* Out-of-range numbers are caught by the field's own min/max — the
            browser refuses the submit. An empty field is the one the browser
@@ -75,7 +89,7 @@ describe('ScheduleForm — a timed block', () => {
         await userEvent.clear(screen.getByLabelText('Minutes before it starts'));
         await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-        expect(await screen.findByText(/between 1 and 240 minutes/)).toBeInTheDocument();
+        expect(await screen.findByText(/between 0 and 240 minutes/)).toBeInTheDocument();
         expect(onSubmit).not.toHaveBeenCalled();
     });
 

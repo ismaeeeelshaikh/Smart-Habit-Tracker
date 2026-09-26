@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
+import { Mic, Square } from 'lucide-react';
 import { createScheduleBlocks, draftScheduleBlocks } from '../../api';
+import { isVoiceSupported, useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import type { ScheduleBlockCreate, ScheduleDraftBlock } from '../../types';
 import { formatTimeRange } from '../../utils/time';
 import { Button } from '../ui/Button';
 
-/** Matches the form's default: a block nobody thought about still warns in time. */
-const DEFAULT_REMIND_BEFORE = 10;
+/** How much warning the saved blocks get. Chosen once for the whole batch:
+ * a college timetable might want "on time", a routine "10 minutes before". */
+const REMINDER_CHOICES = [
+    { value: '10', label: '10 min before' },
+    { value: '0', label: 'On time' },
+    { value: 'none', label: 'No reminder' },
+] as const;
 
 const DAY_LABELS: Record<string, string> = {
     mon: 'Monday',
@@ -17,7 +24,7 @@ const DAY_LABELS: Record<string, string> = {
     sun: 'Sunday',
 };
 
-const EXAMPLE = 'Mon to Fri college 9am to 3pm, gym Tuesday and Thursday 6 to 7pm, cricket Sunday morning 7 to 9';
+const EXAMPLE = 'Mon to Fri college 9am to 3pm, gym Tuesday and Thursday 6 to 7pm, cricket Sunday morning 7 to 9…';
 
 interface DescribeWeekProps {
     /** Called after blocks are saved, so the week below reloads. */
@@ -31,6 +38,13 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
     const [error, setError] = useState<string | null>(null);
     const [isReading, setIsReading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [reminder, setReminder] = useState<string>('10');
+
+    // Spoken words land in the box, after whatever was typed, for checking.
+    const voice = useVoiceRecorder((heard) =>
+        setText((prev) => (prev.trim() ? `${prev.trim()} ${heard}` : heard)),
+    );
+    const canUseVoice = isVoiceSupported();
 
     const read = async () => {
         setError(null);
@@ -59,7 +73,7 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                 is_flexible_block: false,
                 start_time: block.start_time,
                 end_time: block.end_time,
-                remind_before_minutes: DEFAULT_REMIND_BEFORE,
+                remind_before_minutes: reminder === 'none' ? null : Number(reminder),
             }));
             await createScheduleBlocks(blocks);
             await onSaved();
@@ -81,26 +95,58 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
             <div>
                 <h2 className="font-semibold text-lg">Describe your week</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                    Write it the way you'd say it. You'll see what it understood before anything is saved.
+                    Type it or say it, the way you'd tell a friend. You'll see what it understood before
+                    anything is saved.
                 </p>
             </div>
 
             <textarea
                 aria-label="Describe your week"
+                name="week-description"
+                autoComplete="off"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder={EXAMPLE}
                 rows={3}
                 maxLength={4000}
-                className="w-full rounded-[8px] border border-[var(--color-border)] bg-white px-3 py-2 text-[15px] text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus:border-[var(--color-free)]"
+                className="w-full rounded-[8px] border border-[var(--color-border)] bg-white px-3 py-2 text-[15px] text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
             />
 
-            <div className="flex justify-end">
-                <Button onClick={read} disabled={isReading || !text.trim()}>
-                    {isReading ? 'Reading…' : 'Read this'}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+                {canUseVoice && (
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={voice.state === 'recording' ? voice.stop : voice.start}
+                        disabled={voice.state === 'transcribing' || isReading}
+                        aria-pressed={voice.state === 'recording'}
+                        className="inline-flex items-center gap-2"
+                    >
+                        {voice.state === 'recording' ? (
+                            <>
+                                <Square aria-hidden="true" className="h-4 w-4 text-[var(--color-error)]" />
+                                Stop · {Math.floor(voice.seconds / 60)}:{String(voice.seconds % 60).padStart(2, '0')}
+                            </>
+                        ) : voice.state === 'transcribing' ? (
+                            'Writing it down…'
+                        ) : (
+                            <>
+                                <Mic aria-hidden="true" className="h-4 w-4" />
+                                Speak
+                            </>
+                        )}
+                    </Button>
+                )}
+                <Button onClick={read} disabled={isReading || !text.trim() || voice.state !== 'idle'}>
+                    {isReading ? 'Previewing…' : 'Preview schedule'}
                 </Button>
             </div>
 
+            <div aria-live="polite" className="sr-only">
+                {voice.state === 'recording' ? 'Recording. Press stop when you are done.' : ''}
+            </div>
+
+            {voice.error && <p className="text-sm text-destructive font-medium">{voice.error}</p>}
             {error && <p className="text-sm text-destructive font-medium">{error}</p>}
 
             {draft && (
@@ -117,7 +163,7 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                                         key={`${block.day_of_week}-${block.start_time}-${block.label}`}
                                         className="flex items-center justify-between gap-3 p-2 rounded-md border border-border bg-background"
                                     >
-                                        <span className="text-sm">
+                                        <span className="text-sm min-w-0 break-words">
                                             <span className="font-medium">{block.label}</span>
                                             <span className="text-muted-foreground">
                                                 {' · '}
@@ -152,7 +198,23 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                         </ul>
                     )}
 
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex flex-wrap items-center gap-2 justify-end">
+                        {draft.length > 0 && (
+                            <label className="flex items-center gap-2 text-sm mr-auto">
+                                Remind me
+                                <select
+                                    value={reminder}
+                                    onChange={(e) => setReminder(e.target.value)}
+                                    className="h-9 rounded-md border border-[var(--color-border)] bg-white px-2 text-sm text-[var(--color-ink)] outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
+                                >
+                                    {REMINDER_CHOICES.map((choice) => (
+                                        <option key={choice.value} value={choice.value}>
+                                            {choice.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
                         <Button
                             variant="secondary"
                             onClick={() => {

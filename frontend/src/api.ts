@@ -190,6 +190,18 @@ export const draftScheduleBlocks = (text: string): Promise<ScheduleDraft> =>
         "Couldn't read that right now. Add your blocks below instead.",
     );
 
+/** Speech to text. The words come back for the user to check; nothing is saved. */
+export const transcribeWeek = (audio: Blob, filename: string): Promise<{ text: string }> => {
+    const form = new FormData();
+    form.append('audio', audio, filename);
+    // No Content-Type header: the browser has to set the multipart boundary itself.
+    return request<{ text: string }>(
+        '/api/schedule/transcribe',
+        { method: 'POST', body: form },
+        "Couldn't make out that recording. Try again, or type it.",
+    );
+};
+
 /** Saves a reviewed draft. All of it, or none of it. */
 export const createScheduleBlocks = (blocks: ScheduleBlockCreate[]): Promise<ScheduleBlock[]> =>
     request<ScheduleBlock[]>(
