@@ -1,3 +1,4 @@
+import { DaysOff } from '../components/schedule/DaysOff';
 import { DescribeWeek } from '../components/schedule/DescribeWeek';
 import { ScheduleList } from '../components/schedule/ScheduleList';
 import { useScheduleBlocks } from '../hooks/useScheduleBlocks';
@@ -29,6 +30,8 @@ export const Schedule = () => {
           onDeleteBlock={removeBlock}
         />
       )}
+
+      <DaysOff />
     </div>
   );
 };

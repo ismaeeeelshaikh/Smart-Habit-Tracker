@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     Time,
+    UniqueConstraint,
     func,
     text,
 )
@@ -86,6 +88,7 @@ class User(Base):
     completion_logs = relationship("CompletionLog", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     telegram_link_codes = relationship("TelegramLinkCode", back_populates="user", cascade="all, delete-orphan")
+    days_off = relationship("DayOff", back_populates="user", cascade="all, delete-orphan")
 
     @hybrid_property
     def telegram_linked(self) -> bool:
@@ -258,4 +261,30 @@ class TelegramLinkCode(Base):
 
     __table_args__ = (
         Index('idx_telegram_link_codes_code', code, unique=True, postgresql_where=text("consumed_at IS NULL")),
+    )
+
+
+class DayOff(Base):
+    """A date the user has taken off — a festival, a trip, a sick day.
+
+    A schedule block is a weekly pattern and cannot say "not this Monday", so a
+    holiday needs its own row. On such a date the app stays quiet: no lecture
+    warnings and no suggestions. Reminders the user set themselves still go
+    out, because medicine and prayer don't take a holiday.
+
+    One row per date keeps "is today off?" a single lookup; a range is stored
+    as several rows sharing a label.
+    """
+    __tablename__ = 'days_off'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    date = Column(Date, nullable=False)
+    label = Column(String(100), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
+    user = relationship("User", back_populates="days_off")
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'date', name='uq_days_off_user_date'),
     )

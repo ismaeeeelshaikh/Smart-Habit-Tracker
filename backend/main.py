@@ -8,6 +8,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.api.endpoints import (
     auth,
+    days_off,
     goals,
     internal,
     reminders,
@@ -65,6 +66,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(schedule.router, prefix="/api/schedule", tags=["schedule"])
 app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
+app.include_router(days_off.router, prefix="/api/days-off", tags=["days-off"])
 app.include_router(slots.router, prefix="/api/slots", tags=["slots"])
 app.include_router(reminders.router, prefix="/api/reminders", tags=["reminders"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])

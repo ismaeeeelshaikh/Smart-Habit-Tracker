@@ -4,10 +4,11 @@
 class FakeBackend:
     """Stands in for the REST client, recording what the job asked for."""
 
-    def __init__(self, chats=None, suggestion=None, existing_reminders=None, blocks=None):
+    def __init__(self, chats=None, suggestion=None, existing_reminders=None, blocks=None, days_off=None):
         self.chats = chats if chats is not None else [{"chat_id": "42", "timezone": "UTC"}]
         self.suggestion = suggestion or {"slot": None, "allocations": [], "reason": "none"}
         self.blocks = blocks or []
+        self.days_off = days_off or []
         self.reminded: list[str] = []
         # Keyed by token, because the real /api/reminders is scoped to the user
         # the token belongs to — one user's reminders must not hide another's.
@@ -31,6 +32,8 @@ class FakeBackend:
         self.calls.append((method, path, params, json))
         mine = self._reminders.setdefault(token, list(self._seed))
 
+        if path == "/api/days-off/":
+            return self.days_off
         if path == "/api/slots/next":
             return self.suggestion
         if path == "/api/schedule/":

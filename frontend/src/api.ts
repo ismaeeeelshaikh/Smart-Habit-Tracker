@@ -1,4 +1,6 @@
 import type {
+    DayOff,
+    DayOffCreate,
     Goal,
     GoalCreate,
     GoalUpdate,
@@ -223,6 +225,17 @@ export const createScheduleBlocks = (blocks: ScheduleBlockCreate[]): Promise<Sch
         jsonBody('POST', { blocks }),
         "Couldn't save those blocks. Please try again.",
     );
+
+// --- Days off --------------------------------------------------------------
+
+export const getDaysOff = (): Promise<DayOff[]> =>
+    request<DayOff[]>('/api/days-off/', {}, "Couldn't load your days off. Please try again.");
+
+export const addDaysOff = (data: DayOffCreate): Promise<DayOff[]> =>
+    request<DayOff[]>('/api/days-off/', jsonBody('POST', data), "Couldn't add that day off. Please try again.");
+
+export const deleteDayOff = (id: string): Promise<void> =>
+    request<void>(`/api/days-off/${id}`, { method: 'DELETE' }, "Couldn't remove that day off. Please try again.");
 
 // --- Goals -----------------------------------------------------------------
 

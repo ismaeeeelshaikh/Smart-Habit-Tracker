@@ -696,3 +696,62 @@ class TestScheduleBlockReminders:
         assert len(sender.notices) == 1 and len(sender.sent) == 1
 
 
+
+
+class TestDaysOff:
+    """On a day off the app stays quiet — except for what the user set themselves.
+
+    A holiday cancels the lecture, so its warning would be wrong; medicine and
+    prayer don't take a holiday, so a reminder the user asked for still goes.
+    """
+
+    def lecture(self):
+        return {
+            "id": "b1",
+            "day_of_week": DAYS[NOW.weekday()],
+            "label": "DBMS",
+            "start_time": "16:50:00",
+            "end_time": "17:45:00",
+            "is_flexible_block": False,
+            "flexible_availability": None,
+            "remind_before_minutes": 0,
+            "last_reminded_at": None,
+        }
+
+    def own_reminder(self):
+        return {
+            "id": "own1",
+            "label": "Take medicine",
+            "scheduled_time": NOW.isoformat(),
+            "status": "pending",
+            "is_recurring": False,
+            "recurrence_rule": "none",
+            "goal_id": None,
+            "sent_at": None,
+        }
+
+    async def test_no_lecture_warning_on_a_day_off(self, sender):
+        backend = FakeBackend(
+            blocks=[self.lecture()],
+            days_off=[{"date": NOW.date().isoformat(), "label": "Diwali"}],
+        )
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 0
+        assert sender.notices == []
+        assert backend.reminded == []
+
+    async def test_the_users_own_reminder_still_arrives(self, sender):
+        backend = FakeBackend(
+            existing_reminders=[self.own_reminder()],
+            days_off=[{"date": NOW.date().isoformat(), "label": "Diwali"}],
+        )
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1
+        assert "Take medicine" in sender.sent[0]["text"]
+
+    async def test_a_day_off_tomorrow_changes_nothing_today(self, sender):
+        tomorrow = (NOW + timedelta(days=1)).date().isoformat()
+        backend = FakeBackend(blocks=[self.lecture()], days_off=[{"date": tomorrow, "label": "Trip"}])
+
+        assert await dispatch.dispatch_once(backend, sender, now=NOW) == 1
+        assert "DBMS" in sender.notices[0]["text"]

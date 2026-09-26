@@ -6,7 +6,7 @@ the scheduler container can reuse it without going through HTTP.
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, Query
@@ -15,7 +15,7 @@ from sqlalchemy.future import select
 
 from app.api import deps
 from app.db.database import get_db
-from app.db.models import Goal, ScheduleBlock, User
+from app.db.models import DayOff, Goal, ScheduleBlock, User
 from app.schemas.slot import (
     AllocationOut,
     FreeSlotOut,
@@ -92,6 +92,16 @@ async def load_active_goals(db: AsyncSession, user: User) -> list[GoalSpec]:
         )
         for goal in result.scalars().all()
     ]
+
+
+async def load_days_off(db: AsyncSession, user: User, first: date, last: date) -> set[date]:
+    """Dates in [first, last] the user has taken off."""
+    result = await db.execute(
+        select(DayOff.date).where(
+            DayOff.user_id == user.id, DayOff.date >= first, DayOff.date <= last
+        )
+    )
+    return set(result.scalars().all())
 
 
 def _to_upcoming_out(slot: UpcomingSlot) -> UpcomingSlotOut:
@@ -181,6 +191,13 @@ async def get_next_suggestion(
         min_slot_minutes=DEFAULT_MIN_SLOT_MINUTES,
         horizon_days=horizon_days,
     )
+
+    # A day off is a day the app leaves alone: nothing is suggested on it, even
+    # though its lectures make it look busy-then-free like any other.
+    days_off = await load_days_off(
+        db, current_user, now.date(), now.date() + timedelta(days=horizon_days)
+    )
+    slots = [slot for slot in slots if slot.start.date() not in days_off]
 
     if not slots:
         return NextSuggestionOut(

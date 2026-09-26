@@ -54,6 +54,21 @@ export interface ScheduleBlockCreate {
 
 export type ScheduleBlockUpdate = Partial<ScheduleBlockCreate>;
 
+/** A date the app stays quiet: no lecture warnings, no suggestions. */
+export interface DayOff {
+    id: string;
+    date: string;
+    label: string;
+    created_at: string;
+}
+
+export interface DayOffCreate {
+    label: string;
+    start_date: string;
+    /** Blank means just the one day. */
+    end_date?: string | null;
+}
+
 /** One row the model proposed from a described week. Nothing is saved yet. */
 export interface ScheduleDraftBlock {
     day_of_week: DayOfWeek;
