@@ -427,17 +427,125 @@ describe('Dashboard', () => {
                     },
                 ],
             },
-            '/api/reminders/r1/status': { body: { id: 'r1', status: 'skipped' } },
+            '/api/reminders/r1/status': {
+                body: {
+                    id: 'r1',
+                    user_id: 'u1',
+                    goal_id: 'g1',
+                    label: 'Learn React',
+                    scheduled_time: '2026-09-07T12:00:00Z',
+                    status: 'skipped',
+                    is_recurring: false,
+                    recurrence_rule: 'none',
+                },
+            },
         });
 
         renderWithProviders(<Dashboard />);
 
         await userEvent.click(await screen.findByRole('button', { name: 'Skip' }));
 
+        // Said in the hero and in the toast.
         expect(
-            await screen.findByText('Learn React skipped for today. No worries — see you tomorrow.'),
-        ).toBeInTheDocument();
+            await screen.findAllByText("Learn React skipped for today — it'll be back tomorrow."),
+        ).not.toHaveLength(0);
         const put = fetchMock.mock.calls.find(([url]) => String(url).includes('/r1/status'));
         expect(JSON.parse(String(put?.[1]?.body))).toEqual({ status: 'skipped' });
+
+        // Answered once is answered: no second tap can reach the stats.
+        expect(screen.queryByRole('button', { name: 'Skip' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument();
+        expect(
+            fetchMock.mock.calls.filter(([url]) => String(url).includes('/status')),
+        ).toHaveLength(1);
+    });
+
+    it.each([
+        ['later today', '2026-09-07', 'mon', '2026-09-07T18:00:00', 'Coming up at 6:00 PM.'],
+        ['tomorrow', '2026-09-08', 'tue', '2026-09-08T09:00:00', 'Coming up tomorrow at 9:00 AM.'],
+    ])('shows a task for %s without Done / Later / Skip', async (_when, date, day, start, hint) => {
+        mockFetch({
+            ...authed(),
+            '/api/schedule/': { body: [] },
+            ...noSlots,
+            '/api/slots/next': {
+                body: {
+                    timezone: 'UTC',
+                    slot: { day_of_week: day, date, start, end: start.replace(/T\d\d/, 'T23'), duration_minutes: 60 },
+                    allocations: [
+                        {
+                            goal_id: 'g1',
+                            goal_name: 'Learn React',
+                            priority: 'high',
+                            minutes: 30,
+                            start,
+                            end: start,
+                        },
+                    ],
+                    reason: null,
+                },
+            },
+        });
+
+        renderWithProviders(<Dashboard />);
+
+        expect(await screen.findByText(hint)).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument();
+    });
+
+    it.each([
+        ['skipped', "Learn React skipped for today — it'll be back tomorrow."],
+        ['done', "✅ Learn React done — counted in this week's stats."],
+    ])('remembers a goal %s earlier today, even after a reload', async (status, said) => {
+        mockFetch({
+            ...authed(),
+            '/api/schedule/': { body: [] },
+            ...noSlots,
+            // With DSA settled for today, the next suggestion is tomorrow's.
+            '/api/slots/next': {
+                body: {
+                    timezone: 'UTC',
+                    slot: {
+                        day_of_week: 'tue',
+                        date: '2026-09-08',
+                        start: '2026-09-08T09:00:00',
+                        end: '2026-09-08T10:00:00',
+                        duration_minutes: 60,
+                    },
+                    allocations: [
+                        {
+                            goal_id: 'g1',
+                            goal_name: 'Learn React',
+                            priority: 'high',
+                            minutes: 30,
+                            start: '2026-09-08T09:00:00',
+                            end: '2026-09-08T09:30:00',
+                        },
+                    ],
+                    reason: null,
+                },
+            },
+            '/api/reminders/': {
+                body: [
+                    {
+                        id: 'r1',
+                        user_id: 'u1',
+                        goal_id: 'g1',
+                        label: 'Learn React',
+                        scheduled_time: '2026-09-07T10:00:00Z',
+                        status,
+                        is_recurring: false,
+                        recurrence_rule: 'none',
+                    },
+                ],
+            },
+        });
+
+        renderWithProviders(<Dashboard />);
+
+        expect(await screen.findByText(said)).toBeInTheDocument();
+        expect(screen.queryByText(/Coming up/)).not.toBeInTheDocument();
+        // Tomorrow's slot says so, rather than a bare weekday.
+        expect(screen.getByText('Tomorrow · 9:00 AM · 30 min')).toBeInTheDocument();
     });
 });

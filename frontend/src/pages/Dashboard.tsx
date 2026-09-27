@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNow } from '../hooks/useNow';
 import {
   getNextSuggestion,
+  getReminders,
   getScheduleBlocks,
   getTodaysFreeSlots,
   getWeekFreeSlots,
@@ -23,6 +24,7 @@ import { formatTime as clock, formatDuration, toMinutes } from '../utils/time';
 import type {
   DayOfWeek,
   NextSuggestion,
+  Reminder,
   ScheduleBlock,
   TodayFreeSlots,
   WeekFreeSlots,
@@ -144,6 +146,8 @@ export const Dashboard = () => {
   const [stats, setStats] = useState<WeeklyStats | null>(null);
   const [statsError, setStatsError] = useState(false);
 
+  const [answeredToday, setAnsweredToday] = useState<Reminder[]>([]);
+
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -177,6 +181,17 @@ export const Dashboard = () => {
     }
   }, []);
 
+  // Today's answered suggestions, so the hero can say "skipped for today" even
+  // after a reload. Optional: without them the hero just offers the buttons.
+  const loadAnswered = useCallback(async (isoDate: string) => {
+    try {
+      const reminders = await getReminders({ start: `${isoDate}T00:00:00`, end: `${isoDate}T23:59:59` });
+      setAnsweredToday(reminders.filter((r) => r.goal_id && r.status !== 'pending'));
+    } catch {
+      setAnsweredToday([]);
+    }
+  }, []);
+
   const loadStats = useCallback(async () => {
     setStatsError(false);
     try {
@@ -193,6 +208,10 @@ export const Dashboard = () => {
     loadStats();
   }, [loadPlan, loadToday, loadNext, loadStats]);
 
+  useEffect(() => {
+    loadAnswered(now.isoDate);
+  }, [loadAnswered, now.isoDate]);
+
   // Derived, not stored: rebuilt when the weekday rolls over at midnight,
   // not on every minute tick.
   const plan = useMemo(
@@ -205,10 +224,9 @@ export const Dashboard = () => {
   const handleAnswered = useCallback(
     (message: string) => {
       setToast({ message, type: 'success' });
-      loadNext();
-      loadStats();
+      return Promise.all([loadNext(), loadStats(), loadAnswered(now.isoDate)]);
     },
-    [loadNext, loadStats],
+    [loadNext, loadStats, loadAnswered, now.isoDate],
   );
   const handleActionError = useCallback(
     (message: string) => setToast({ message, type: 'error' }),
@@ -249,6 +267,7 @@ export const Dashboard = () => {
         next={next}
         nextError={nextError}
         onRetryNext={loadNext}
+        answeredToday={answeredToday}
         onAnswered={handleAnswered}
         onError={handleActionError}
       />

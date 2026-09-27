@@ -217,6 +217,8 @@ Chosen by the product owner on 27 Sep 2026 after the first build read as "too pl
 - **Dashboard cards** use a 16px radius (instead of 10px) so they sit comfortably beside the hero.
 - **Today timeline**: time already past is covered by a fine diagonal hatch (`--color-hatch`), and faint hour lines are drawn inside the band.
 
+- **Schedule page has no Week Strip** (product owner, 27 Sep 2026), overriding Section 4.2 for that screen. Each day card shows a thin one-line busy bar instead.
+
 Still ruled out: gradients anywhere else, glassmorphism beyond the tab bar, confetti or streak effects, and a second brand colour.
 
 ---
