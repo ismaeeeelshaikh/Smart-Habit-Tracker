@@ -44,6 +44,39 @@ describe('Stats', () => {
         expect(screen.getByText('1 of 2 completed')).toBeInTheDocument();
     });
 
+    it('shows an unused tier as nothing yet rather than 0%', async () => {
+        mockFetch({ ...authed, '/api/stats/weekly': { body: makeStats() } });
+
+        renderWithProviders(<Stats />);
+
+        expect(await screen.findByRole('img', { name: 'Low priority: nothing yet' })).toBeInTheDocument();
+        expect(screen.queryByText('0%')).not.toBeInTheDocument();
+    });
+
+    it('leads with the week as a whole', async () => {
+        mockFetch({ ...authed, '/api/stats/weekly': { body: makeStats() } });
+
+        renderWithProviders(<Stats />);
+
+        expect(await screen.findByText('67%')).toBeInTheDocument();
+        expect(screen.getByText('4 of 6')).toBeInTheDocument();
+    });
+
+    it('asks for the week by its local Monday', async () => {
+        // A Wednesday evening; toISOString() would have shifted the Monday in
+        // timezones ahead of UTC.
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date(2026, 8, 9, 20, 0));
+        const fetchMock = mockFetch({ ...authed, '/api/stats/weekly': { body: makeStats() } });
+
+        renderWithProviders(<Stats />);
+        await screen.findByText('75%');
+        vi.useRealTimers();
+
+        const asked = fetchMock.mock.calls.map(([url]) => String(url));
+        expect(asked.some((url) => url.includes('week_start=2026-09-07'))).toBe(true);
+    });
+
     it('names the most skipped goal with its count', async () => {
         mockFetch({ ...authed, '/api/stats/weekly': { body: makeStats() } });
 
@@ -85,7 +118,7 @@ describe('Stats', () => {
         renderWithProviders(<Stats />);
         await screen.findByText('75%');
 
-        await userEvent.click(screen.getByRole('button', { name: '← Previous' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Previous week' }));
 
         const asked = fetchMock.mock.calls.map(([url]) => String(url));
         expect(asked.some((url) => url.includes('week_start='))).toBe(true);
@@ -97,7 +130,7 @@ describe('Stats', () => {
         renderWithProviders(<Stats />);
         await screen.findByText('75%');
 
-        expect(screen.getByRole('button', { name: 'Next →' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Next week' })).toBeDisabled();
     });
 
     it('offers a retry when the week fails to load', async () => {
