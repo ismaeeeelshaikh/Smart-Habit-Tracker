@@ -32,7 +32,7 @@ export const Toast: React.FC<ToastProps> = ({
   return (
     <div 
       className={cn(
-        "fixed bottom-4 sm:bottom-auto sm:top-20 right-4 sm:right-6 min-w-[300px] max-w-sm rounded-[8px] shadow-md p-4 flex items-start justify-between z-50",
+        "fixed bottom-24 sm:bottom-auto sm:top-20 left-4 right-4 sm:left-auto sm:right-6 sm:min-w-[300px] sm:max-w-sm rounded-[8px] shadow-md p-4 flex items-start justify-between z-50",
         "animate-in slide-in-from-bottom-5 sm:slide-in-from-top-5 fade-in duration-300",
         typeStyles[type]
       )}

@@ -6,7 +6,7 @@ the scheduler container can reuse it without going through HTTP.
 """
 
 import logging
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, Query
@@ -15,7 +15,7 @@ from sqlalchemy.future import select
 
 from app.api import deps
 from app.db.database import get_db
-from app.db.models import DayOff, Goal, ScheduleBlock, User
+from app.db.models import DayOff, Goal, Reminder, ReminderStatusEnum, ScheduleBlock, User
 from app.schemas.goal import current_step
 from app.schemas.slot import (
     AllocationOut,
@@ -49,6 +49,11 @@ def user_now(user: User) -> datetime:
     The engine works in local wall-clock terms because a schedule block means
     "09:00 where I live", not an instant in UTC.
     """
+    return datetime.now(user_zone(user)).replace(tzinfo=None)
+
+
+def user_zone(user: User):
+    """The user's timezone, or UTC (loudly) when it can't be resolved."""
     try:
         tz = ZoneInfo(user.timezone)
     except (ZoneInfoNotFoundError, ValueError):
@@ -63,7 +68,7 @@ def user_now(user: User) -> datetime:
             user.id,
         )
         tz = UTC
-    return datetime.now(tz).replace(tzinfo=None)
+    return tz
 
 
 async def load_entries(db: AsyncSession, user: User) -> list[ScheduleEntry]:
@@ -106,6 +111,33 @@ async def load_days_off(db: AsyncSession, user: User, first: date, last: date) -
         )
     )
     return set(result.scalars().all())
+
+
+# Answers that settle a goal for the day. "later" is not one of them: it asks
+# for the reminder again in the next free slot, which the reminder itself does.
+SETTLED_FOR_TODAY = (ReminderStatusEnum.done, ReminderStatusEnum.skipped)
+
+
+async def load_settled_today(db: AsyncSession, user: User, today: date) -> set[str]:
+    """Goals already done or skipped today, so today's suggestions move on.
+
+    Without this the allocator — which knows nothing of completions — hands
+    back the same top goal on the very next dispatch tick after a Done, and
+    "Skip" only bought the dispatcher's cooldown rather than the rest of the day.
+    """
+    tz = user_zone(user)
+    start = datetime.combine(today, time.min, tzinfo=tz).astimezone(UTC)
+    end = datetime.combine(today + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC)
+    result = await db.execute(
+        select(Reminder.goal_id).where(
+            Reminder.user_id == user.id,
+            Reminder.goal_id.is_not(None),
+            Reminder.status.in_(SETTLED_FOR_TODAY),
+            Reminder.scheduled_time >= start,
+            Reminder.scheduled_time < end,
+        )
+    )
+    return {str(goal_id) for goal_id in result.scalars().all()}
 
 
 def _to_upcoming_out(slot: UpcomingSlot) -> UpcomingSlotOut:
@@ -233,10 +265,16 @@ async def get_next_suggestion(
     )
     today_step = {str(goal_id): current_step(goal_steps) for goal_id, goal_steps in steps.items()}
 
+    # A goal done or skipped today sits out the rest of today; tomorrow it's
+    # back like any other.
+    settled = await load_settled_today(db, current_user, now.date())
+    open_today = [g for g in goals if g.id not in settled]
+
     # Walk forward until a slot big enough for something turns up, rather than
     # reporting "nothing fits" on a 15-minute gap when a 2-hour one follows.
     for slot in slots:
-        plan = allocate(slot.duration_minutes, goals)
+        pool = open_today if slot.start.date() == now.date() else goals
+        plan = allocate(slot.duration_minutes, pool) if pool else []
         if plan:
             return NextSuggestionOut(
                 timezone=current_user.timezone,

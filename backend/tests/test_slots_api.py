@@ -5,6 +5,8 @@ the adapter layer — ownership, the user's own day window, timezone handling, a
 the empty states the UX Flow Document specifies.
 """
 
+from datetime import UTC, datetime
+
 import pytest
 
 
@@ -179,6 +181,56 @@ class TestNextSuggestion:
         body = (await auth_client.get("/api/slots/next")).json()
         assert body["allocations"] == []
         assert body["reason"] == "None of your goals fit in your upcoming free time."
+
+    async def open_all_day(self, client):
+        """So there is free time left today whenever the test happens to run."""
+        res = await client.patch(
+            "/api/users/me/preferences",
+            json={"day_start_time": "00:00:00", "day_end_time": "23:59:00"},
+        )
+        assert res.status_code == 200, res.text
+
+    async def answer(self, client, goal_id, status):
+        res = await client.post(
+            "/api/reminders/",
+            json={"goal_id": goal_id, "scheduled_time": datetime.now(UTC).isoformat()},
+        )
+        assert res.status_code == 201, res.text
+        res = await client.put(
+            f"/api/reminders/{res.json()['id']}/status", json={"status": status}
+        )
+        assert res.status_code == 200, res.text
+
+    @pytest.mark.parametrize("status", ["done", "skipped"])
+    async def test_a_goal_settled_today_sits_out_the_rest_of_today(self, auth_client, status):
+        await self.open_all_day(auth_client)
+        dsa = await add_goal(auth_client, "DSA", "high", 20)
+        await add_goal(auth_client, "Gym", "low", 20)
+        await self.answer(auth_client, dsa["id"], status)
+
+        body = (await auth_client.get("/api/slots/next")).json()
+
+        assert body["slot"]["date"] == datetime.now(UTC).date().isoformat()
+        assert [a["goal_name"] for a in body["allocations"]] == ["Gym"]
+
+    async def test_later_does_not_take_a_goal_out_of_today(self, auth_client):
+        await self.open_all_day(auth_client)
+        dsa = await add_goal(auth_client, "DSA", "high", 20)
+        await self.answer(auth_client, dsa["id"], "later")
+
+        body = (await auth_client.get("/api/slots/next")).json()
+
+        assert "DSA" in [a["goal_name"] for a in body["allocations"]]
+
+    async def test_with_everything_settled_the_suggestion_moves_to_tomorrow(self, auth_client):
+        await self.open_all_day(auth_client)
+        dsa = await add_goal(auth_client, "DSA", "high", 20)
+        await self.answer(auth_client, dsa["id"], "done")
+
+        body = (await auth_client.get("/api/slots/next")).json()
+
+        assert body["slot"]["date"] > datetime.now(UTC).date().isoformat()
+        assert [a["goal_name"] for a in body["allocations"]] == ["DSA"]
 
     @pytest.mark.parametrize("horizon", [0, 15])
     async def test_rejects_an_out_of_range_horizon(self, auth_client, horizon):

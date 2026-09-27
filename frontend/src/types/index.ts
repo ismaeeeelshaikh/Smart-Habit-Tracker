@@ -167,6 +167,8 @@ export interface Allocation {
     minutes: number;
     start: string;
     end: string;
+    /** The goal's first unfinished step ("Strings"), when it has steps. */
+    current_step?: string | null;
 }
 
 export interface NextSuggestion {
@@ -234,6 +236,11 @@ export interface CompletionTally {
     completion_rate: number;
 }
 
+export interface DayTally extends CompletionTally {
+    /** Local date, "2026-09-07". */
+    date: string;
+}
+
 export interface WeeklyStats {
     timezone: string;
     /** Monday of the week, as a local date. */
@@ -241,6 +248,8 @@ export interface WeeklyStats {
     week_end: string;
     by_priority: Record<Priority, CompletionTally>;
     overall: CompletionTally;
+    /** Monday to Sunday, always seven entries. */
+    by_day: DayTally[];
     most_skipped: { label: string; skips: number } | null;
     /**
      * Raw completion_logs rows in the week. Zero means nothing happened at all,

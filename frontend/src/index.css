@@ -22,6 +22,13 @@
   --color-error: #C13B3B;
   --color-warning-bg: #FCF3D9;
 
+  /* Dashboard hero and floating tab bar (Design Brief 10). */
+  --color-hero-from: #1F7FB0;
+  --color-hero-to: #17618A;
+  --color-hero-glow: rgba(31, 127, 176, 0.30);
+  --color-hatch: rgba(31, 29, 26, 0.07);
+  --color-tabbar: rgba(255, 254, 251, 0.86);
+
   /* Fonts */
   --font-inter: 'Inter', sans-serif;
   --font-display: 'Space Grotesk', sans-serif;
@@ -88,6 +95,42 @@
     --color-priority-low: #6FBF91;
     --color-error: #EC737B;
     --color-warning-bg: #3A3020;
+    --color-hero-from: #2A6F97;
+    --color-hero-to: #16384E;
+    --color-hero-glow: rgba(88, 169, 214, 0.18);
+    --color-hatch: rgba(233, 230, 224, 0.06);
+    --color-tabbar: rgba(29, 32, 36, 0.86);
+  }
+}
+
+/* The one gradient in the app: the "free right now" card. A soft light in the
+   top-right corner and a faint dot grid keep it from reading as a flat banner. */
+@layer components {
+  .hero-surface {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    color: #fff;
+    background:
+      radial-gradient(120% 80% at 100% 0%, rgb(255 255 255 / 0.22) 0%, rgb(255 255 255 / 0) 55%),
+      linear-gradient(140deg, var(--color-hero-from) 0%, var(--color-hero-to) 100%);
+    box-shadow: 0 14px 32px -10px var(--color-hero-glow);
+  }
+  .hero-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.18;
+    background-image: radial-gradient(rgb(255 255 255 / 0.9) 1px, transparent 1.2px);
+    background-size: 14px 14px;
+    mask-image: linear-gradient(200deg, #000 0%, transparent 60%);
+  }
+
+  /* Time that has already gone by, on the timeline. */
+  .timeline-past {
+    background-image: repeating-linear-gradient(135deg, var(--color-hatch) 0 2px, transparent 2px 7px);
   }
 }
 

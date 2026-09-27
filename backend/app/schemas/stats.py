@@ -13,6 +13,12 @@ class CompletionTally(BaseModel):
     completion_rate: int
 
 
+class DayTally(CompletionTally):
+    """One day of the week, for the dashboard's seven small bars."""
+
+    date: date
+
+
 class MostSkipped(BaseModel):
     label: str
     skips: int
@@ -30,6 +36,8 @@ class WeeklyStats(BaseModel):
     week_end: date
     by_priority: dict[PriorityEnum, CompletionTally]
     overall: CompletionTally
+    # Monday to Sunday, always seven entries, empty days included.
+    by_day: list[DayTally]
     most_skipped: MostSkipped | None = None
     # Lets the screen tell "nothing happened this week" apart from "0% done".
     total_actions: int

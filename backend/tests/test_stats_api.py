@@ -233,3 +233,36 @@ class TestOwnership:
             select(Reminder).where(Reminder.id == other_users_activity["id"])
         )
         assert result.scalars().first() is not None
+
+
+class TestByDay:
+    async def test_always_lists_the_seven_days_of_the_week(self, stats_of):
+        body = await stats_of()
+
+        days = [datetime.fromisoformat(d["date"]).date() for d in body["by_day"]]
+        assert len(days) == 7
+        assert days[0].isoformat() == body["week_start"]
+        assert days[-1].isoformat() == body["week_end"]
+        assert all(d["total"] == 0 for d in body["by_day"])
+
+    async def test_files_each_reminder_under_the_day_it_was_answered(
+        self, auth_client, stats_of
+    ):
+        goal = await add_goal(auth_client, "DSA", priority="high")
+        done = await add_reminder(auth_client, goal_id=goal["id"])
+        skipped = await add_reminder(auth_client, goal_id=goal["id"])
+        await act(auth_client, done["id"], "done")
+        await act(auth_client, skipped["id"], "skipped")
+
+        body = await stats_of()
+
+        today = datetime.now(UTC).date().isoformat()  # the test user is on UTC
+        by_date = {d["date"]: d for d in body["by_day"]}
+        assert by_date[today] == {
+            "date": today,
+            "completed": 1,
+            "total": 2,
+            "completion_rate": 50,
+        }
+        # The days add up to the week.
+        assert sum(d["total"] for d in body["by_day"]) == body["overall"]["total"]

@@ -208,4 +208,17 @@ The product should feel like **a well-made utility you check between commitments
 
 ---
 
+## 10. Dashboard Hero Revision (September 2026)
+
+Chosen by the product owner on 27 Sep 2026 after the first build read as "too plain". It relaxes Sections 4.1 and 7.6 in three named places only; everything else in this brief still holds.
+
+- **Free-now hero card** (Dashboard only, one per page): the one gradient in the app, `--color-hero-from` → `--color-hero-to` (light `#1F7FB0` → `#17618A`, Night `#2A6F97` → `#16384E`), with a soft white light in the top-right corner and a faint dot grid. 24px radius, and it is the one card with a shadow (`--color-hero-glow`). White text. It shows the free time left right now in Data type at 48–56px, the suggested task, and Done / Later / Skip buttons that behave exactly like the Telegram ones (UX Flow Document 12.1).
+- **Floating mobile tab bar**: detached 12px from the screen edges, 22px radius, `--color-tabbar` (surface at 86%) with a backdrop blur, hairline border and a soft shadow. The active tab gets a `--color-free-tint` pill.
+- **Dashboard cards** use a 16px radius (instead of 10px) so they sit comfortably beside the hero.
+- **Today timeline**: time already past is covered by a fine diagonal hatch (`--color-hatch`), and faint hour lines are drawn inside the band.
+
+Still ruled out: gradients anywhere else, glassmorphism beyond the tab bar, confetti or streak effects, and a second brand colour.
+
+---
+
 *This brief should be treated as the single source of truth for visual styling. Any screen or component described in the UX Flow Document that isn't explicitly styled here should be built using the closest analogous pattern from Sections 5–6, not a new ad hoc style.*

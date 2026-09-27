@@ -442,9 +442,9 @@ Start now?
 **Button behaviors:**
 | Button | Behavior |
 |---|---|
-| ✅ Done | Calls `PUT /reminders/{id}/status` with `done`. Bot edits the original message to append: "✅ Marked as done — nice work!" Buttons removed after action (prevent double-tap). |
+| ✅ Done | Calls `PUT /reminders/{id}/status` with `done`. Bot edits the original message to append: "✅ Marked as done — nice work!" Buttons removed after action (prevent double-tap). **Behavior:** the goal is not suggested again for the rest of the day; the next suggestion moves on to another goal. |
 | ⏳ Later | Calls same endpoint with `later`. Bot edits message to append: "⏳ Snoozed — I'll check in again later." Buttons removed. **Behavior:** re-surfaces this task in the next detected free slot within the same day, or next day if none remain. |
-| ❌ Skip | Calls same endpoint with `skipped`. Bot edits message to append: "❌ Skipped. No worries — see you next time." Buttons removed. |
+| ❌ Skip | Calls same endpoint with `skipped`. Bot edits message to append: "❌ Skipped. No worries — see you next time." Buttons removed. **Behavior (decided 2026-09-27):** "not today" — the goal is left out of suggestions for the rest of the user's local day and comes back tomorrow. The same three buttons also appear on the web Dashboard and call the same endpoints. |
 | No response (timeout) | If unanswered by end of the suggested time window, reminder status remains `pending`; no auto-skip in MVP (avoid punishing users for not being glued to Telegram — this is a deliberate scope decision, not an omission). |
 
 **Error state:** If the status update API call fails when a button is tapped, bot edits message to show: "⚠️ Couldn't save that — please try again." and re-shows the buttons (does not silently fail).

@@ -11,6 +11,8 @@ Counting rules, since the documents specify the outputs but not the arithmetic:
 * "Most skipped" counts skip *events*, not distinct reminders: skipping a daily
   reminder four times is four skips, which is the behaviour the number is meant
   to surface.
+* The per-day split files each reminder under the local date of that same
+  latest action, so the seven days add up to the overall figure exactly.
 * Reminders whose goal was deleted (goal_id set to NULL) have no priority left,
   so they count toward the overall rate but not toward a priority tier.
 
@@ -30,7 +32,7 @@ from sqlalchemy.future import select
 from app.api import deps
 from app.db.database import get_db
 from app.db.models import CompletionActionEnum, CompletionLog, Goal, PriorityEnum, Reminder, User
-from app.schemas.stats import CompletionTally, MostSkipped, WeeklyStats
+from app.schemas.stats import CompletionTally, DayTally, MostSkipped, WeeklyStats
 
 router = APIRouter()
 
@@ -48,6 +50,13 @@ def _week_bounds(anchor: date) -> tuple[date, date]:
     """The Monday and Sunday of the week containing `anchor`."""
     monday = anchor - timedelta(days=anchor.weekday())
     return monday, monday + timedelta(days=6)
+
+
+def _local_date(stamp: datetime, tz) -> date:
+    # The column is timestamptz, but a naive value would have been written in UTC.
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=UTC)
+    return stamp.astimezone(tz).date()
 
 
 def _tally(completed: int, total: int) -> CompletionTally:
@@ -89,20 +98,26 @@ async def get_weekly_stats(
     rows = result.all()
 
     # Ordered by timestamp, so the last write per reminder wins.
-    latest: dict[str, tuple[CompletionActionEnum, PriorityEnum | None]] = {}
+    latest: dict[str, tuple[CompletionActionEnum, PriorityEnum | None, date]] = {}
     skips: Counter[str] = Counter()
 
     for log, reminder, goal in rows:
-        latest[str(reminder.id)] = (log.action, goal.priority if goal else None)
+        latest[str(reminder.id)] = (
+            log.action,
+            goal.priority if goal else None,
+            _local_date(log.timestamp, tz),
+        )
         if log.action is CompletionActionEnum.skipped:
             skips[reminder.label] += 1
 
     by_priority: dict[PriorityEnum, list[bool]] = defaultdict(list)
+    by_date: dict[date, list[bool]] = defaultdict(list)
     outcomes: list[bool] = []
 
-    for action, priority in latest.values():
+    for action, priority, day in latest.values():
         was_done = action is CompletionActionEnum.done
         outcomes.append(was_done)
+        by_date[day].append(was_done)
         if priority is not None:
             by_priority[priority].append(was_done)
 
@@ -122,6 +137,10 @@ async def get_weekly_stats(
             for priority in PriorityEnum
         },
         overall=_tally(sum(outcomes), len(outcomes)),
+        by_day=[
+            DayTally(date=day, **_tally(sum(by_date[day]), len(by_date[day])).model_dump())
+            for day in (monday + timedelta(days=i) for i in range(7))
+        ],
         most_skipped=most_skipped,
         total_actions=len(rows),
     )

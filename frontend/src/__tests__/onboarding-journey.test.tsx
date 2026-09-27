@@ -160,7 +160,7 @@ describe('signup to dashboard', () => {
 
         // --- and out into the app --------------------------------------
         await waitFor(() => expect(state.onboardingComplete).toBe(true));
-        expect(await screen.findByText('Your Week')).toBeInTheDocument();
+        expect(await screen.findByText('Up next')).toBeInTheDocument();
         // The app shell has replaced the onboarding layout.
         expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
     }, 30000);
@@ -172,7 +172,7 @@ describe('signup to dashboard', () => {
 
         renderAt('/onboarding/schedule');
 
-        expect(await screen.findByText('Your Week')).toBeInTheDocument();
+        expect(await screen.findByText('Up next')).toBeInTheDocument();
     }, 20000);
 
     it('keeps an unauthenticated visitor out of the app', async () => {

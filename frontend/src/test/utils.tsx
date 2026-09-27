@@ -25,7 +25,10 @@ export const mockFetch = (
 ): ReturnType<typeof vi.fn> => {
     const fn = vi.fn(async (input: RequestInfo | URL) => {
         const url = typeof input === 'string' ? input : input.toString();
-        const key = Object.keys(routes).find((k) => url.includes(k));
+        // Longest match wins, so '/api/slots/free' doesn't swallow '/api/slots/free/today'.
+        const key = Object.keys(routes)
+            .filter((k) => url.includes(k))
+            .sort((a, b) => b.length - a.length)[0];
         const route = key ? routes[key] : undefined;
         const status = route?.status ?? (route ? 200 : 404);
         return new Response(route?.body === undefined ? null : JSON.stringify(route.body), {
