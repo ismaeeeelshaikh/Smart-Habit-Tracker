@@ -13,6 +13,8 @@ export interface User {
     email: string;
     /** Null for accounts made before signup asked for it. */
     full_name: string | null;
+    /** False until the code mailed at signup is entered. */
+    email_verified: boolean;
     timezone: string;
     is_active: boolean;
     created_at: string;

@@ -60,6 +60,22 @@ class Settings(BaseSettings):
     # 10 minutes per App Flow Document Section 4.3 ("Code expired (>10 min unused)").
     TELEGRAM_LINK_CODE_TTL_MINUTES: int = 10
 
+    # --- Email ------------------------------------------------------------
+    # A code is mailed at signup and the account can't use the app until it is
+    # entered. Off by default so the code can ship before the mail service is
+    # set up; turn on once BREVO_API_KEY and EMAIL_FROM work. Turning it off
+    # again lets every unverified account straight in.
+    EMAIL_VERIFICATION_REQUIRED: bool = False
+    # Brevo's HTTP API — Render's free plan blocks outbound SMTP ports, so a
+    # plain SMTP relay isn't an option. Blank: codes are written to the log.
+    BREVO_API_KEY: str = ""
+    # A sender address verified in Brevo.
+    EMAIL_FROM: str = ""
+    EMAIL_FROM_NAME: str = "Time Intel"
+    EMAIL_CODE_TTL_MINUTES: int = 10
+    EMAIL_CODE_MAX_ATTEMPTS: int = 5
+    EMAIL_CODE_RESEND_SECONDS: int = 60
+
     # --- Model ------------------------------------------------------------
     # Reads a described week into schedule rows. Blank turns the feature off:
     # the form stays, and the API says so rather than failing oddly.

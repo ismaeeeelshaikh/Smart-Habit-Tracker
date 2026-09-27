@@ -55,6 +55,17 @@ async def get_current_user(
     return user
 
 
+async def require_verified_email(user: User = Depends(get_current_user)) -> User:
+    """Gate for the app's API: an account must confirm its email first.
+
+    403, not 401 — the token is fine, the account just isn't finished. The
+    screens send the user to enter their code.
+    """
+    if not user.email_verified:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not verified")
+    return user
+
+
 async def require_internal_key(x_internal_key: str | None = Header(None)) -> None:
     """Gate for /internal/* — the telegram and scheduler containers.
 

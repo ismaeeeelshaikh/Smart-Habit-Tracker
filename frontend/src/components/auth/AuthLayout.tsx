@@ -80,15 +80,16 @@ const Wordmark = () => (
  * on a phone), the form on the other.
  */
 export const AuthLayout = ({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) => (
-    <div className="min-h-screen bg-[var(--color-bg)] lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6 lg:p-6">
-        {/* Brand: a strip on phones, a full panel on wide screens. */}
-        <aside className="hero-surface rounded-b-[28px] px-5 pb-16 pt-8 lg:flex lg:flex-col lg:justify-between lg:rounded-[28px] lg:p-10">
+    <div className="min-h-screen bg-[var(--color-bg)] px-4 pb-10 pt-4 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6 lg:p-6">
+        {/* Brand: a compact banner on phones, a full panel beside the form on wide screens. */}
+        <aside className="hero-surface rounded-[20px] px-5 py-5 sm:p-8 lg:flex lg:flex-col lg:justify-between lg:rounded-[28px] lg:p-10">
             <Wordmark />
-            <div className="mt-6 max-w-[440px] lg:mt-0">
-                <h1 className="font-display text-[28px] font-semibold leading-[1.15] text-balance lg:text-[40px]">
+            <div className="mt-4 max-w-[440px] sm:mt-6 lg:mt-0">
+                <h1 className="font-display text-[22px] font-semibold leading-[1.2] text-balance sm:text-[28px] lg:text-[40px] lg:leading-[1.15]">
                     Spot free time. Build habits.
                 </h1>
-                <p className="mt-3 text-[15px] leading-relaxed text-white/80">
+                {/* On a phone the form matters more than the pitch. */}
+                <p className="mt-3 hidden text-[15px] leading-relaxed text-white/80 sm:block">
                     Tell it your week once. It finds the gaps and sends the right habit to Telegram at the right
                     moment.
                 </p>
@@ -99,8 +100,8 @@ export const AuthLayout = ({ title, subtitle, children }: { title: string; subti
             <p className="hidden text-[13px] text-white/60 lg:block">For anyone with a busy week.</p>
         </aside>
 
-        <main className="-mt-10 px-4 pb-10 lg:mt-0 lg:grid lg:place-items-center lg:p-0">
-            <div className="mx-auto w-full max-w-[420px] rounded-[20px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[0_10px_30px_-18px_rgb(0_0_0/0.35)] sm:p-7 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <main className="mt-7 sm:mt-10 lg:mt-0 lg:grid lg:place-items-center">
+            <div className="mx-auto w-full max-w-[420px]">
                 <h2 className="font-display text-[24px] font-semibold text-[var(--color-ink)]">{title}</h2>
                 <p className="mt-1 text-[14px] text-[var(--color-ink-muted)]">{subtitle}</p>
                 <div className="mt-6">{children}</div>

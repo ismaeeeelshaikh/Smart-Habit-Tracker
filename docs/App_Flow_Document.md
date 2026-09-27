@@ -80,6 +80,15 @@ If a behavior isn't specified here, the agent should treat it as **not in scope 
 
 ---
 
+### 2.1 Email verification (`/verify-email`) *(added 28 Sep 2026)*
+
+When `EMAIL_VERIFICATION_REQUIRED` is on, a successful signup mails a 6-digit code and lands on this screen instead of onboarding. Signing in with an unverified account lands here too, and every app route redirects here until the code is entered.
+
+- Shows the address the code went to; one numeric code field (auto-fills from the email on phones) that checks itself once six digits are in; "Verify email" button.
+- "Send a new code" is disabled for 60 seconds after each send, with a countdown. "Wrong email? Sign out" returns to signup.
+- Errors, shown under the field: "That code isn't right. N tries left." / "Too many wrong tries. Send a new code." / "That code has expired. Send a new one."
+- Success: onboarding (new account) or the dashboard.
+
 ## 3. Screen: Login (`/login`)
 
 **Purpose:** Authenticate an existing user.

@@ -5,6 +5,7 @@ import {
     ProtectedRoute,
     RequireIncompleteOnboarding,
     RequireOnboarding,
+    RequireVerifiedEmail,
 } from './components/ProtectedRoute';
 import { AppLayout } from './components/layout/AppLayout';
 
@@ -20,6 +21,7 @@ import { ScheduleSetup } from './pages/onboarding/ScheduleSetup';
 import { GoalSetup } from './pages/onboarding/GoalSetup';
 import { TelegramLink } from './pages/onboarding/TelegramLink';
 import { NotFound } from './pages/NotFound';
+import { VerifyEmail } from './pages/VerifyEmail';
 
 export const AppRoutes: React.FC = () => (
     <Routes>
@@ -29,6 +31,10 @@ export const AppRoutes: React.FC = () => (
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
+            {/* Entering the code mailed at signup comes before everything else. */}
+            <Route path="/verify-email" element={<VerifyEmail />} />
+
+            <Route element={<RequireVerifiedEmail />}>
             {/* Onboarding Flow (standalone layout, only before setup is done) */}
             <Route element={<RequireIncompleteOnboarding />}>
                 <Route path="/onboarding/schedule" element={<ScheduleSetup />} />
@@ -46,6 +52,7 @@ export const AppRoutes: React.FC = () => (
                     <Route path="/stats" element={<Stats />} />
                     <Route path="/settings" element={<Settings />} />
                 </Route>
+            </Route>
             </Route>
         </Route>
 

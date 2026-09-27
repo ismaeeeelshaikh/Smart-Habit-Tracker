@@ -74,6 +74,8 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     id: uuid.UUID
     full_name: str | None = None
+    # False until the signup code is entered; always true when verification is off.
+    email_verified: bool = True
     is_active: bool
     created_at: datetime
     onboarding_completed_at: datetime | None = None

@@ -139,6 +139,12 @@ export const getMe = (): Promise<User> =>
 export const completeOnboarding = (): Promise<User> =>
     request<User>('/api/users/me/complete-onboarding', { method: 'POST' }, "Couldn't finish setup. Please try again.");
 
+export const verifyEmail = (code: string): Promise<User> =>
+    request<User>('/auth/verify-email', jsonBody('POST', { code }), "Couldn't check that code. Please try again.");
+
+export const resendVerification = (): Promise<void> =>
+    request<void>('/auth/resend-verification', { method: 'POST' }, "Couldn't send a new code. Please try again.");
+
 export const changePassword = (current_password: string, new_password: string): Promise<void> =>
     request<void>(
         '/auth/change-password',

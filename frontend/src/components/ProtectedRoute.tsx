@@ -26,6 +26,18 @@ export const ProtectedRoute: React.FC = () => {
 };
 
 /**
+ * An account that hasn't entered its signup code goes to /verify-email first;
+ * the API refuses everything under /api until it has.
+ */
+export const RequireVerifiedEmail: React.FC = () => {
+    const { isLoading, user } = useAuth();
+
+    if (isLoading) return <FullPageLoader />;
+    if (user && !user.email_verified) return <Navigate to="/verify-email" replace />;
+    return <Outlet />;
+};
+
+/**
  * Guards the main app: a user who has not finished setup is sent back into the
  * wizard, so a refresh mid-onboarding cannot strand them on an empty dashboard.
  */

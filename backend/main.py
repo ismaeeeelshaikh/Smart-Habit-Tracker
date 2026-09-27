@@ -1,11 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from app.api import deps
 from app.api.endpoints import (
     auth,
     days_off,
@@ -63,14 +64,17 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(users.router, prefix="/api/users", tags=["users"])
-app.include_router(schedule.router, prefix="/api/schedule", tags=["schedule"])
-app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
-app.include_router(days_off.router, prefix="/api/days-off", tags=["days-off"])
-app.include_router(slots.router, prefix="/api/slots", tags=["slots"])
-app.include_router(reminders.router, prefix="/api/reminders", tags=["reminders"])
-app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
-app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])
+# Everything under /api needs a confirmed email (when verification is on);
+# /auth stays open so a new account can sign in and enter its code.
+verified = [Depends(deps.require_verified_email)]
+app.include_router(users.router, prefix="/api/users", tags=["users"], dependencies=verified)
+app.include_router(schedule.router, prefix="/api/schedule", tags=["schedule"], dependencies=verified)
+app.include_router(goals.router, prefix="/api/goals", tags=["goals"], dependencies=verified)
+app.include_router(days_off.router, prefix="/api/days-off", tags=["days-off"], dependencies=verified)
+app.include_router(slots.router, prefix="/api/slots", tags=["slots"], dependencies=verified)
+app.include_router(reminders.router, prefix="/api/reminders", tags=["reminders"], dependencies=verified)
+app.include_router(stats.router, prefix="/api/stats", tags=["stats"], dependencies=verified)
+app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"], dependencies=verified)
 # Telegram posts updates here; authenticated by the webhook secret, not a user.
 app.include_router(webhook.router, prefix="/telegram", tags=["telegram"])
 # Service-to-service, shared-key authenticated — not part of the public surface.

@@ -8,6 +8,7 @@ export const makeUser = (overrides: Partial<User> = {}): User => ({
     id: '11111111-1111-1111-1111-111111111111',
     email: 'user@example.com',
     full_name: null,
+    email_verified: true,
     timezone: 'UTC',
     is_active: true,
     created_at: '2026-01-01T00:00:00Z',

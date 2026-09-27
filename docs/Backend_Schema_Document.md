@@ -33,7 +33,8 @@ reminders (1) ──< (many) completion_logs [one reminder can have multiple sta
 CREATE TABLE users (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email               VARCHAR(255) NOT NULL UNIQUE,
-    full_name           VARCHAR(100),                          -- added 27 Sep 2026 (migration d8a41f6b2c90); asked at signup, editable in Settings; NULL for older accounts
+    full_name           VARCHAR(100),
+    email_verified_at   TIMESTAMPTZ,                           -- added 28 Sep 2026 (migration e3b7c1d9a5f2); NULL until the signup code is entered; existing rows were stamped verified                          -- added 27 Sep 2026 (migration d8a41f6b2c90); asked at signup, editable in Settings; NULL for older accounts
     password_hash       VARCHAR(255) NOT NULL,
     timezone            VARCHAR(64) NOT NULL DEFAULT 'UTC',   -- IANA tz name, e.g. 'Asia/Kolkata'
     telegram_chat_id    VARCHAR(64) UNIQUE,                    -- NULL until linked
@@ -207,6 +208,26 @@ CREATE UNIQUE INDEX idx_telegram_link_codes_code ON telegram_link_codes (code) W
 - Required to back the "Generate linking code" flow specified in the UX Flow Document (Section 4.3, Section 10). Not present in the earlier Implementation Spec — flagged there, formalized here.
 - Partial unique index (`WHERE consumed_at IS NULL`) allows the same code string to theoretically exist twice across all-time history (once consumed, once fresh) without a real collision risk, while still preventing two simultaneously-active codes from colliding.
 - Codes should be short-lived (10 minutes, per UX Flow Document) — expiry enforced at the application layer using `expires_at`, plus a periodic cleanup job (or `expires_at < now()` filter on every lookup) rather than relying on manual deletion.
+
+### 2.8 `email_verification_codes` *(added 28 Sep 2026, migration e3b7c1d9a5f2)*
+
+```sql
+CREATE TABLE email_verification_codes (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code_hash           VARCHAR(64) NOT NULL,    -- HMAC-SHA256 of "user_id:code", keyed with JWT_SECRET
+    expires_at          TIMESTAMPTZ NOT NULL,    -- 10 minutes after sending
+    attempts            INTEGER NOT NULL DEFAULT 0,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_email_verification_codes_user ON email_verification_codes (user_id);
+```
+
+**Notes:**
+- A 6-digit code is mailed at signup (Brevo HTTP API — Render's free plan blocks outbound SMTP). Only its keyed hash is stored, so a leaked table can't be turned back into codes.
+- One live code per user: sending a new one deletes the old. Five wrong tries lock the code; resending is allowed once every 60 seconds.
+- Endpoints: `POST /auth/verify-email {code}` and `POST /auth/resend-verification`. While `EMAIL_VERIFICATION_REQUIRED` is on, every `/api/*` route answers 403 "Email not verified" until the code is entered. With it off (the default), signups are stamped verified at once.
 
 ---
 

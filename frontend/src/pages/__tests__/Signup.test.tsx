@@ -37,6 +37,28 @@ describe('Signup', () => {
         expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/auth/signup'))).toBe(false);
     });
 
+    it('names every missing field on an empty submit', async () => {
+        mockFetch({ '/auth/refresh': { status: 401 } });
+        renderWithProviders(<Signup />);
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Sign up' }));
+
+        expect(screen.getByText('Enter your name.')).toBeInTheDocument();
+        expect(screen.getByText('Enter your email address.')).toBeInTheDocument();
+        expect(screen.getByText('Choose a password.')).toBeInTheDocument();
+        expect(screen.getByText('Type the password again.')).toBeInTheDocument();
+    });
+
+    it('ticks off the password rules as they are met', async () => {
+        mockFetch({ '/auth/refresh': { status: 401 } });
+        renderWithProviders(<Signup />);
+
+        await userEvent.type(await screen.findByLabelText('Password'), 'abcdefgh');
+
+        expect(screen.getByText('At least 8 characters')).toHaveTextContent('(done)');
+        expect(screen.getByText('A number')).toHaveTextContent('(not yet)');
+    });
+
     it('sends the name with the signup', async () => {
         const fetchMock = mockFetch({
             '/auth/refresh': { status: 401 },

@@ -1,20 +1,25 @@
 import hashlib
+import hmac
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import update
+from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.api.deps import get_current_user
 from app.core.config import settings
+from app.core.email import EmailError, send_verification_code
 from app.core.rate_limit import limiter
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.database import get_db
-from app.db.models import RefreshToken, User
-from app.schemas.auth import LoginRequest, PasswordChangeRequest, Token
+from app.db.models import EmailVerificationCode, RefreshToken, User
+from app.schemas.auth import LoginRequest, PasswordChangeRequest, Token, VerifyEmailRequest
 from app.schemas.user import UserCreate, UserResponse
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -23,6 +28,36 @@ REFRESH_COOKIE_NAME = "refresh_token"
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _hash_code(user_id, code: str) -> str:
+    """Keyed and tied to the user, so a leaked table can't be brute-forced
+    back to 6-digit codes, and one account's code can't unlock another."""
+    return hmac.new(
+        settings.JWT_SECRET.encode(), f"{user_id}:{code}".encode(), hashlib.sha256
+    ).hexdigest()
+
+
+async def _send_new_code(db: AsyncSession, user: User) -> None:
+    """Replace any earlier code with a fresh one and mail it.
+
+    A mail failure is logged, not raised: the account exists either way, and
+    the screen offers "Send a new code".
+    """
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    await db.execute(delete(EmailVerificationCode).where(EmailVerificationCode.user_id == user.id))
+    db.add(
+        EmailVerificationCode(
+            user_id=user.id,
+            code_hash=_hash_code(user.id, code),
+            expires_at=datetime.now(UTC) + timedelta(minutes=settings.EMAIL_CODE_TTL_MINUTES),
+        )
+    )
+    await db.flush()
+    try:
+        await send_verification_code(user.email, code)
+    except EmailError as err:
+        log.error("verification email to user %s failed: %s", user.id, err)
 
 
 def _refresh_cookie_attributes() -> dict:
@@ -92,6 +127,11 @@ async def signup(
     )
     db.add(user)
     await db.flush()
+
+    if settings.EMAIL_VERIFICATION_REQUIRED:
+        await _send_new_code(db, user)
+    else:
+        user.email_verified_at = datetime.now(UTC)
 
     access_token = create_access_token(subject=str(user.id))
     raw_refresh_token, _ = await _issue_refresh_token(db, user.id, request)
@@ -235,4 +275,81 @@ async def change_password(
     await db.commit()
 
     _set_refresh_cookie(response, raw_refresh_token)
+    return None
+
+
+@router.post("/verify-email", response_model=UserResponse)
+@limiter.limit("10/minute")
+async def verify_email(
+    payload: VerifyEmailRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Check the 6-digit code mailed at signup and mark the email verified."""
+    if current_user.email_verified_at is not None:
+        return current_user
+
+    row = (
+        await db.execute(
+            select(EmailVerificationCode)
+            .where(EmailVerificationCode.user_id == current_user.id)
+            .order_by(EmailVerificationCode.created_at.desc())
+        )
+    ).scalars().first()
+
+    if row is None or row.expires_at < datetime.now(UTC):
+        raise HTTPException(status_code=400, detail="That code has expired. Send a new one.")
+    if row.attempts >= settings.EMAIL_CODE_MAX_ATTEMPTS:
+        raise HTTPException(status_code=400, detail="Too many wrong tries. Send a new code.")
+
+    code = payload.code.strip()
+    if not hmac.compare_digest(row.code_hash, _hash_code(current_user.id, code)):
+        row.attempts += 1
+        await db.commit()
+        left = settings.EMAIL_CODE_MAX_ATTEMPTS - row.attempts
+        detail = (
+            "Too many wrong tries. Send a new code."
+            if left <= 0
+            else f"That code isn't right. {left} {'try' if left == 1 else 'tries'} left."
+        )
+        raise HTTPException(status_code=400, detail=detail)
+
+    current_user.email_verified_at = datetime.now(UTC)
+    await db.execute(
+        delete(EmailVerificationCode).where(EmailVerificationCode.user_id == current_user.id)
+    )
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
+@router.post("/resend-verification", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("5/minute")
+async def resend_verification(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mail a fresh code, at most once every EMAIL_CODE_RESEND_SECONDS."""
+    if current_user.email_verified_at is not None:
+        return None
+
+    latest = (
+        await db.execute(
+            select(EmailVerificationCode.created_at)
+            .where(EmailVerificationCode.user_id == current_user.id)
+            .order_by(EmailVerificationCode.created_at.desc())
+        )
+    ).scalars().first()
+    if latest is not None:
+        wait = settings.EMAIL_CODE_RESEND_SECONDS - (datetime.now(UTC) - latest).total_seconds()
+        if wait > 0:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Wait {int(wait) + 1} seconds before asking for another code.",
+            )
+
+    await _send_new_code(db, current_user)
+    await db.commit()
     return None

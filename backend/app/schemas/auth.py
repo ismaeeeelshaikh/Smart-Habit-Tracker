@@ -8,6 +8,10 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class VerifyEmailRequest(BaseModel):
+    code: str
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str

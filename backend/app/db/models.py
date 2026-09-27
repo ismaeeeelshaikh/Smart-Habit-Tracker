@@ -22,6 +22,8 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
+from app.core.config import settings
+
 from .base import Base
 
 
@@ -72,6 +74,9 @@ class User(Base):
     # What the app calls you ("Good evening, Ismaeel"). Null for accounts made
     # before it was asked for; the screens fall back to the email's first part.
     full_name = Column(String(100), nullable=True)
+    # When the signup code was entered. Accounts from before verification
+    # existed were stamped by the migration that added this.
+    email_verified_at = Column(DateTime(timezone=True), nullable=True)
     password_hash = Column(String(255), nullable=False)
     timezone = Column(String(64), nullable=False, default='UTC')
     telegram_chat_id = Column(String(64), nullable=True)
@@ -96,6 +101,12 @@ class User(Base):
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     telegram_link_codes = relationship("TelegramLinkCode", back_populates="user", cascade="all, delete-orphan")
     days_off = relationship("DayOff", back_populates="user", cascade="all, delete-orphan")
+    email_codes = relationship("EmailVerificationCode", back_populates="user", cascade="all, delete-orphan")
+
+    @property
+    def email_verified(self) -> bool:
+        # With verification switched off, nobody is held back by it.
+        return self.email_verified_at is not None or not settings.EMAIL_VERIFICATION_REQUIRED
 
     @hybrid_property
     def telegram_linked(self) -> bool:
@@ -273,6 +284,24 @@ class TelegramLinkCode(Base):
     __table_args__ = (
         Index('idx_telegram_link_codes_code', code, unique=True, postgresql_where=text("consumed_at IS NULL")),
     )
+
+
+class EmailVerificationCode(Base):
+    """The 6-digit code mailed at signup. Stored hashed, never as typed."""
+
+    __tablename__ = 'email_verification_codes'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    code_hash = Column(String(64), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    # Wrong guesses so far; the code stops working at EMAIL_CODE_MAX_ATTEMPTS.
+    attempts = Column(Integer, nullable=False, default=0, server_default=text('0'))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
+    user = relationship("User", back_populates="email_codes")
+
+    __table_args__ = (Index('idx_email_verification_codes_user', user_id),)
 
 
 class DayOff(Base):
