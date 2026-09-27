@@ -287,13 +287,18 @@ class TelegramLinkCode(Base):
 
 
 class EmailVerificationCode(Base):
-    """The 6-digit code mailed at signup. Stored hashed, never as typed."""
+    """A 6-digit code mailed to the user. Stored hashed, never as typed.
+
+    `purpose` keeps the two uses apart: "verify" (confirming the address at
+    signup) and "reset" (forgot password). A code for one never works for the other.
+    """
 
     __tablename__ = 'email_verification_codes'
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     code_hash = Column(String(64), nullable=False)
+    purpose = Column(String(16), nullable=False, default='verify', server_default=text("'verify'"))
     expires_at = Column(DateTime(timezone=True), nullable=False)
     # Wrong guesses so far; the code stops working at EMAIL_CODE_MAX_ATTEMPTS.
     attempts = Column(Integer, nullable=False, default=0, server_default=text('0'))

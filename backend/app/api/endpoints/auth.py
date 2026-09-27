@@ -11,12 +11,19 @@ from sqlalchemy.future import select
 
 from app.api.deps import get_current_user
 from app.core.config import settings
-from app.core.email import EmailError, send_verification_code
+from app.core.email import EmailError, send_password_reset_code, send_verification_code
 from app.core.rate_limit import limiter
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.database import get_db
 from app.db.models import EmailVerificationCode, RefreshToken, User
-from app.schemas.auth import LoginRequest, PasswordChangeRequest, Token, VerifyEmailRequest
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    PasswordChangeRequest,
+    ResetPasswordRequest,
+    Token,
+    VerifyEmailRequest,
+)
 from app.schemas.user import UserCreate, UserResponse
 
 log = logging.getLogger(__name__)
@@ -38,26 +45,49 @@ def _hash_code(user_id, code: str) -> str:
     ).hexdigest()
 
 
-async def _send_new_code(db: AsyncSession, user: User) -> None:
-    """Replace any earlier code with a fresh one and mail it.
-
-    A mail failure is logged, not raised: the account exists either way, and
-    the screen offers "Send a new code".
-    """
+async def _new_code(db: AsyncSession, user: User, purpose: str) -> str:
+    """Store a fresh code for this purpose, replacing the last one, and return it."""
     code = f"{secrets.randbelow(1_000_000):06d}"
-    await db.execute(delete(EmailVerificationCode).where(EmailVerificationCode.user_id == user.id))
+    await db.execute(
+        delete(EmailVerificationCode).where(
+            EmailVerificationCode.user_id == user.id, EmailVerificationCode.purpose == purpose
+        )
+    )
     db.add(
         EmailVerificationCode(
             user_id=user.id,
+            purpose=purpose,
             code_hash=_hash_code(user.id, code),
             expires_at=datetime.now(UTC) + timedelta(minutes=settings.EMAIL_CODE_TTL_MINUTES),
         )
     )
     await db.flush()
+    return code
+
+
+async def _latest_code(db: AsyncSession, user_id, purpose: str) -> EmailVerificationCode | None:
+    return (
+        await db.execute(
+            select(EmailVerificationCode)
+            .where(EmailVerificationCode.user_id == user_id, EmailVerificationCode.purpose == purpose)
+            .order_by(EmailVerificationCode.created_at.desc())
+        )
+    ).scalars().first()
+
+
+async def _send_new_code(db: AsyncSession, user: User) -> bool:
+    """Replace any earlier code with a fresh one and mail it. True if it went out.
+
+    A mail failure is logged, not raised: at signup the account exists either
+    way, and the screen offers "Send a new code", which does report it.
+    """
+    code = await _new_code(db, user, "verify")
     try:
         await send_verification_code(user.email, code)
     except EmailError as err:
         log.error("verification email to user %s failed: %s", user.id, err)
+        return False
+    return True
 
 
 def _refresh_cookie_attributes() -> dict:
@@ -290,13 +320,7 @@ async def verify_email(
     if current_user.email_verified_at is not None:
         return current_user
 
-    row = (
-        await db.execute(
-            select(EmailVerificationCode)
-            .where(EmailVerificationCode.user_id == current_user.id)
-            .order_by(EmailVerificationCode.created_at.desc())
-        )
-    ).scalars().first()
+    row = await _latest_code(db, current_user.id, "verify")
 
     if row is None or row.expires_at < datetime.now(UTC):
         raise HTTPException(status_code=400, detail="That code has expired. Send a new one.")
@@ -317,7 +341,9 @@ async def verify_email(
 
     current_user.email_verified_at = datetime.now(UTC)
     await db.execute(
-        delete(EmailVerificationCode).where(EmailVerificationCode.user_id == current_user.id)
+        delete(EmailVerificationCode).where(
+            EmailVerificationCode.user_id == current_user.id, EmailVerificationCode.purpose == "verify"
+        )
     )
     await db.commit()
     await db.refresh(current_user)
@@ -335,21 +361,104 @@ async def resend_verification(
     if current_user.email_verified_at is not None:
         return None
 
-    latest = (
-        await db.execute(
-            select(EmailVerificationCode.created_at)
-            .where(EmailVerificationCode.user_id == current_user.id)
-            .order_by(EmailVerificationCode.created_at.desc())
-        )
-    ).scalars().first()
-    if latest is not None:
-        wait = settings.EMAIL_CODE_RESEND_SECONDS - (datetime.now(UTC) - latest).total_seconds()
+    latest_row = await _latest_code(db, current_user.id, "verify")
+    if latest_row is not None:
+        wait = settings.EMAIL_CODE_RESEND_SECONDS - (datetime.now(UTC) - latest_row.created_at).total_seconds()
         if wait > 0:
             raise HTTPException(
                 status_code=429,
                 detail=f"Wait {int(wait) + 1} seconds before asking for another code.",
             )
 
-    await _send_new_code(db, current_user)
+    sent = await _send_new_code(db, current_user)
+    # Committed either way, so the cooldown holds even when the mail failed.
+    await db.commit()
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We couldn't send the email just now. Try again in a minute.",
+        )
+    return None
+
+
+# The same answer whether or not an account exists, so this can't be used to
+# find out which emails are registered.
+RESET_SENT = {"detail": "If an account uses that email, a code is on its way."}
+RESET_WRONG = "That code isn't right or has expired. Check it, or send a new one."
+
+
+@router.post("/forgot-password")
+@limiter.limit("5/minute")
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Mail a 6-digit code for choosing a new password."""
+    email = payload.email.strip()
+    user = (await db.execute(select(User).where(User.email.ilike(email)))).scalars().first()
+    if user is None or not user.is_active:
+        return RESET_SENT
+
+    latest = await _latest_code(db, user.id, "reset")
+    if latest is not None and (
+        datetime.now(UTC) - latest.created_at
+    ).total_seconds() < settings.EMAIL_CODE_RESEND_SECONDS:
+        # Asked again within the minute: the earlier code is still good.
+        return RESET_SENT
+
+    code = await _new_code(db, user, "reset")
+    await db.commit()
+    try:
+        await send_password_reset_code(user.email, code)
+    except EmailError as err:
+        log.error("password reset email to user %s failed: %s", user.id, err)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We couldn't send the email just now. Try again in a minute.",
+        ) from err
+    return RESET_SENT
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
+async def reset_password(
+    payload: ResetPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Set a new password with the mailed code. Signs out every device."""
+    user = (
+        await db.execute(select(User).where(User.email.ilike(payload.email.strip())))
+    ).scalars().first()
+    row = await _latest_code(db, user.id, "reset") if user is not None else None
+
+    if (
+        row is None
+        or row.expires_at < datetime.now(UTC)
+        or row.attempts >= settings.EMAIL_CODE_MAX_ATTEMPTS
+    ):
+        raise HTTPException(status_code=400, detail=RESET_WRONG)
+
+    if not hmac.compare_digest(row.code_hash, _hash_code(user.id, payload.code.strip())):
+        row.attempts += 1
+        await db.commit()
+        raise HTTPException(status_code=400, detail=RESET_WRONG)
+
+    user.password_hash = get_password_hash(payload.new_password)
+    # Reading the mail proves the address, too.
+    if user.email_verified_at is None:
+        user.email_verified_at = datetime.now(UTC)
+    await db.execute(
+        delete(EmailVerificationCode).where(
+            EmailVerificationCode.user_id == user.id, EmailVerificationCode.purpose == "reset"
+        )
+    )
+    # Whoever knew the old password is signed out everywhere.
+    await db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+        .values(revoked_at=datetime.now(UTC))
+    )
     await db.commit()
     return None

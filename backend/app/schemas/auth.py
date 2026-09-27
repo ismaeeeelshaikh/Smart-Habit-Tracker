@@ -12,6 +12,21 @@ class VerifyEmailRequest(BaseModel):
     code: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def _validate_new_password(cls, v: str) -> str:
+        return validate_password_strength(v)
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str

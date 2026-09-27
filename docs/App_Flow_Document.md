@@ -89,6 +89,10 @@ When `EMAIL_VERIFICATION_REQUIRED` is on, a successful signup mails a 6-digit co
 - Errors, shown under the field: "That code isn't right. N tries left." / "Too many wrong tries. Send a new code." / "That code has expired. Send a new one."
 - Success: onboarding (new account) or the dashboard.
 
+### 2.2 Forgot password (`/forgot-password`) *(added 28 Sep 2026)*
+
+Linked from "Forgot password?" on Login. Step 1: email → "Send code" (the answer never reveals whether an account exists). Step 2 on the same screen: 6-digit code, new password, confirm → "Change password". Success returns to Login with "Password changed. Sign in with the new one." and signs out every other device. Wrong or expired code: "That code isn't right or has expired. Check it, or send a new one."
+
 ## 3. Screen: Login (`/login`)
 
 **Purpose:** Authenticate an existing user.

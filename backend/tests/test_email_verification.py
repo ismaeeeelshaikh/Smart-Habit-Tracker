@@ -162,3 +162,22 @@ class TestResend:
         if new != old:
             assert (await client.post("/auth/verify-email", json={"code": old})).status_code == 400
         assert (await client.post("/auth/verify-email", json={"code": new})).status_code == 200
+
+
+    async def test_a_failed_send_is_reported_not_hidden(self, new_user, db_session, monkeypatch):
+        client, _ = new_user
+
+        async def broken(to: str, code: str) -> None:
+            raise EmailError("mail service answered 400: account not activated")
+
+        monkeypatch.setattr(auth_endpoints, "send_verification_code", broken)
+        await db_session.execute(
+            update(EmailVerificationCode).values(
+                created_at=datetime.now(UTC) - timedelta(seconds=settings.EMAIL_CODE_RESEND_SECONDS + 1)
+            )
+        )
+
+        res = await client.post("/auth/resend-verification")
+
+        assert res.status_code == 502
+        assert res.json()["detail"] == "We couldn't send the email just now. Try again in a minute."

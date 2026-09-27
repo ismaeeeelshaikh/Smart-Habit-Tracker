@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { AuthLayout, PasswordInput, authInput, authLabel } from '../components/auth/AuthLayout';
@@ -25,6 +25,8 @@ export const Login: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
+    // Set by the forgot-password screen after a successful reset.
+    const notice = (useLocation().state as { notice?: string } | null)?.notice;
 
     const errors = validate(email, password);
     const emailError = submitted || emailLeft ? errors.email : undefined;
@@ -71,6 +73,11 @@ export const Login: React.FC = () => {
     return (
         <AuthLayout title="Welcome back" subtitle="Sign in to see today's free time.">
             <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+                {notice && !error && (
+                    <div role="status" className="rounded-[12px] bg-[var(--color-free-tint)] px-4 py-3 text-[14px] font-medium text-[var(--color-ink)]">
+                        {notice}
+                    </div>
+                )}
                 {error && (
                     <div role="alert" className="rounded-[12px] bg-[var(--color-warning-bg)] px-4 py-3 text-[14px] font-medium text-[var(--color-ink)]">
                         {error}
@@ -103,9 +110,9 @@ export const Login: React.FC = () => {
                 <div>
                     <div className="mb-1.5 flex items-baseline justify-between">
                         <label className="text-[13px] font-medium text-[var(--color-ink)]" htmlFor="password">Password</label>
-                        <span title="Coming soon" className="text-[12px] text-[var(--color-ink-muted)] opacity-60">
+                        <Link to="/forgot-password" className="text-[13px] font-medium text-[var(--color-free)] hover:brightness-90">
                             Forgot password?
-                        </span>
+                        </Link>
                     </div>
                     <PasswordInput
                         id="password"

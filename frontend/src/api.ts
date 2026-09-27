@@ -145,6 +145,16 @@ export const verifyEmail = (code: string): Promise<User> =>
 export const resendVerification = (): Promise<void> =>
     request<void>('/auth/resend-verification', { method: 'POST' }, "Couldn't send a new code. Please try again.");
 
+export const forgotPassword = (email: string): Promise<{ detail: string }> =>
+    request<{ detail: string }>('/auth/forgot-password', jsonBody('POST', { email }), "Couldn't send the code. Please try again.");
+
+export const resetPassword = (email: string, code: string, new_password: string): Promise<void> =>
+    request<void>(
+        '/auth/reset-password',
+        jsonBody('POST', { email, code, new_password }),
+        "Couldn't change the password. Please try again.",
+    );
+
 export const changePassword = (current_password: string, new_password: string): Promise<void> =>
     request<void>(
         '/auth/change-password',

@@ -216,6 +216,7 @@ CREATE TABLE email_verification_codes (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     code_hash           VARCHAR(64) NOT NULL,    -- HMAC-SHA256 of "user_id:code", keyed with JWT_SECRET
+    purpose             VARCHAR(16) NOT NULL DEFAULT 'verify',  -- 'verify' (signup) or 'reset' (forgot password); added by migration f5c2d8e41a73
     expires_at          TIMESTAMPTZ NOT NULL,    -- 10 minutes after sending
     attempts            INTEGER NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -227,7 +228,7 @@ CREATE INDEX idx_email_verification_codes_user ON email_verification_codes (user
 **Notes:**
 - A 6-digit code is mailed at signup (Brevo HTTP API — Render's free plan blocks outbound SMTP). Only its keyed hash is stored, so a leaked table can't be turned back into codes.
 - One live code per user: sending a new one deletes the old. Five wrong tries lock the code; resending is allowed once every 60 seconds.
-- Endpoints: `POST /auth/verify-email {code}` and `POST /auth/resend-verification`. While `EMAIL_VERIFICATION_REQUIRED` is on, every `/api/*` route answers 403 "Email not verified" until the code is entered. With it off (the default), signups are stamped verified at once.
+- Endpoints: `POST /auth/verify-email {code}` and `POST /auth/resend-verification`. Forgot password uses the same table with purpose 'reset': `POST /auth/forgot-password {email}` (same answer whether or not the account exists) and `POST /auth/reset-password {email, code, new_password}` (signs out every device; also confirms the email). While `EMAIL_VERIFICATION_REQUIRED` is on, every `/api/*` route answers 403 "Email not verified" until the code is entered. With it off (the default), signups are stamped verified at once.
 
 ---
 

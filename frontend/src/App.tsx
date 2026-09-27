@@ -11,6 +11,7 @@ import { AppLayout } from './components/layout/AppLayout';
 
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
+import { ForgotPassword } from './pages/ForgotPassword';
 import { Dashboard } from './pages/Dashboard';
 import { Schedule } from './pages/Schedule';
 import { Goals } from './pages/Goals';
@@ -28,6 +29,7 @@ export const AppRoutes: React.FC = () => (
         {/* Public Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>

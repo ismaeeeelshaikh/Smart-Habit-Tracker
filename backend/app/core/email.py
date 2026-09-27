@@ -44,6 +44,28 @@ async def send_email(to: str, subject: str, text: str, html: str) -> None:
         raise EmailError(f"mail service answered {res.status_code}: {res.text[:200]}")
 
 
+def _code_email(intro: str, code: str, outro: str) -> str:
+    code_style = (
+        "font-size:32px;font-weight:bold;letter-spacing:8px;"
+        "font-family:monospace;margin:0 0 16px;color:#1F7FB0"
+    )
+    return (
+        '<div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;color:#1F1D1A">'
+        f'<p style="font-size:15px;margin:0 0 16px">{intro}</p>'
+        f'<p style="{code_style}">{code}</p>'
+        f'<p style="font-size:13px;color:#67625A;margin:0">{outro}</p>'
+        "</div>"
+    )
+
+
+async def send_password_reset_code(to: str, code: str) -> None:
+    minutes = settings.EMAIL_CODE_TTL_MINUTES
+    outro = f"It works for {minutes} minutes. If you didn't ask to reset your password, ignore this email."
+    text = f"Your Time Intel password reset code is {code}\n\n{outro}"
+    html = _code_email("Enter this code to choose a new Time Intel password:", code, outro)
+    await send_email(to, f"{code} is your Time Intel reset code", text, html)
+
+
 async def send_verification_code(to: str, code: str) -> None:
     minutes = settings.EMAIL_CODE_TTL_MINUTES
     text = (
