@@ -343,6 +343,33 @@ describe('Dashboard', () => {
         expect(await screen.findByText('Stats unavailable.')).toBeInTheDocument();
     });
 
+    it('greets the user by their first name', async () => {
+        mockFetch({
+            ...authed({ full_name: 'Ismaeel Shaikh', email: 'shaikh75@example.com' }),
+            '/api/schedule/': { body: [] },
+            ...noSlots,
+            ...noSuggestion,
+        });
+
+        renderWithProviders(<Dashboard />);
+
+        // Noon UTC, so afternoon.
+        expect(await screen.findByRole('heading', { name: 'Good afternoon, Ismaeel' })).toBeInTheDocument();
+    });
+
+    it('falls back to the email for an account with no name', async () => {
+        mockFetch({
+            ...authed({ full_name: null, email: 'shaikh75@example.com' }),
+            '/api/schedule/': { body: [] },
+            ...noSlots,
+            ...noSuggestion,
+        });
+
+        renderWithProviders(<Dashboard />);
+
+        expect(await screen.findByRole('heading', { name: 'Good afternoon, shaikh75' })).toBeInTheDocument();
+    });
+
     it('drops the Telegram banner once connected', async () => {
         mockFetch({
             ...authed({ telegram_linked: true, telegram_username: 'ismaeel' }),

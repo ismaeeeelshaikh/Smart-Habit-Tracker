@@ -2,25 +2,32 @@ from datetime import UTC, datetime, time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
 from app.db.database import get_db
 from app.db.models import DayOfWeekEnum, User
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse, validate_full_name
 
 router = APIRouter()
 
 
 class PreferencesUpdate(BaseModel):
-    """Partial update of the settings that shape slot computation."""
+    """Partial update of the user's settings."""
 
+    # Settings is where an account made before signup asked for a name adds one.
+    full_name: str | None = None
     timezone: str | None = None
     day_start_time: time | None = None
     day_end_time: time | None = None
     # Replaces the whole set: the client sends every quiet weekday it wants.
     quiet_days: list[DayOfWeekEnum] | None = None
+
+    @field_validator("full_name")
+    @classmethod
+    def _validate_full_name(cls, v: str | None) -> str | None:
+        return validate_full_name(v)
 
 
 @router.post("/me/complete-onboarding", response_model=UserResponse)

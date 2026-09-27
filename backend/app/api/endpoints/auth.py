@@ -86,6 +86,7 @@ async def signup(
 
     user = User(
         email=user_in.email.lower(),
+        full_name=user_in.full_name,
         password_hash=get_password_hash(user_in.password),
         timezone=user_in.timezone,
     )

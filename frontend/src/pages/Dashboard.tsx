@@ -11,6 +11,7 @@ import { UpNext } from '../components/dashboard/UpNext';
 import { WeekBars } from '../components/dashboard/WeekBars';
 import { useAuth } from '../contexts/AuthContext';
 import { useNow } from '../hooks/useNow';
+import { firstName } from '../utils/name';
 import {
   getNextSuggestion,
   getReminders,
@@ -233,7 +234,7 @@ export const Dashboard = () => {
     [],
   );
 
-  const greetingName = user?.email?.split('@')[0] ?? '';
+  const greetingName = firstName(user);
   const isQuietDay = user?.quiet_days?.includes(now.weekday) ?? false;
 
   return (

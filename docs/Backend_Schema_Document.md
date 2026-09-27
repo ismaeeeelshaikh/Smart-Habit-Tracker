@@ -33,6 +33,7 @@ reminders (1) ──< (many) completion_logs [one reminder can have multiple sta
 CREATE TABLE users (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email               VARCHAR(255) NOT NULL UNIQUE,
+    full_name           VARCHAR(100),                          -- added 27 Sep 2026 (migration d8a41f6b2c90); asked at signup, editable in Settings; NULL for older accounts
     password_hash       VARCHAR(255) NOT NULL,
     timezone            VARCHAR(64) NOT NULL DEFAULT 'UTC',   -- IANA tz name, e.g. 'Asia/Kolkata'
     telegram_chat_id    VARCHAR(64) UNIQUE,                    -- NULL until linked

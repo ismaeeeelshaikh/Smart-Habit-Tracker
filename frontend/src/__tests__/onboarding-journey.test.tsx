@@ -128,7 +128,8 @@ describe('signup to dashboard', () => {
         renderAt('/signup');
 
         // --- sign up ---------------------------------------------------
-        await userEvent.type(await screen.findByLabelText('Email address'), 'new@example.com');
+        await userEvent.type(await screen.findByLabelText('Full name'), 'New Person');
+        await userEvent.type(screen.getByLabelText('Email address'), 'new@example.com');
         await userEvent.type(screen.getByLabelText('Password'), 'password123');
         await userEvent.type(screen.getByLabelText('Confirm Password'), 'password123');
         await userEvent.click(screen.getByRole('button', { name: 'Sign up' }));

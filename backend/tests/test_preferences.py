@@ -158,3 +158,17 @@ class TestTimezoneAliases:
             },
         )
         assert res.status_code == 422
+
+
+async def test_an_existing_account_can_add_its_name(auth_client):
+    res = await auth_client.patch("/api/users/me/preferences", json={"full_name": "Ismaeel"})
+
+    assert res.status_code == 200, res.text
+    assert res.json()["full_name"] == "Ismaeel"
+    # Other settings are untouched by a name-only update.
+    assert res.json()["day_start_time"] == "08:00:00"
+
+
+async def test_a_blank_name_is_refused(auth_client):
+    res = await auth_client.patch("/api/users/me/preferences", json={"full_name": " "})
+    assert res.status_code == 422

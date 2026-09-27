@@ -322,6 +322,98 @@ const TelegramSection = () => {
     );
 };
 
+/** Who you are: the name the app calls you by, your email and timezone. */
+const AccountSection: React.FC = () => {
+    const { user, refreshUser } = useAuth();
+    const [isEditing, setIsEditing] = useState(false);
+    const [name, setName] = useState(user?.full_name ?? '');
+    const [error, setError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const save = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        if (!name.trim()) {
+            setError('Enter your name.');
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await updatePreferences({ full_name: name.trim() });
+            await refreshUser();
+            setIsEditing(false);
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : "Couldn't save that. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="flex items-start gap-4">
+            <span
+                aria-hidden="true"
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-soft)] font-display text-[18px] font-semibold uppercase text-[var(--color-ink)]"
+            >
+                {(user?.full_name || user?.email || '?')[0]}
+            </span>
+            <div className="min-w-0 flex-1">
+                {isEditing ? (
+                    <form onSubmit={save} noValidate className="space-y-2">
+                        <label className="block text-[13px] font-medium" htmlFor="account-name">
+                            Full name
+                        </label>
+                        <input
+                            id="account-name"
+                            type="text"
+                            autoComplete="name"
+                            maxLength={100}
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className={inputClass}
+                        />
+                        {error && <p className="text-[13px] text-[var(--color-error)]">{error}</p>}
+                        <div className="flex gap-2">
+                            <Button type="button" variant="secondary" onClick={() => setIsEditing(false)} disabled={isSaving}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving ? 'Saving…' : 'Save name'}
+                            </Button>
+                        </div>
+                    </form>
+                ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p
+                            className={
+                                user?.full_name
+                                    ? 'font-display text-[17px] font-semibold text-[var(--color-ink)] break-words'
+                                    : 'text-[15px] text-[var(--color-ink-muted)]'
+                            }
+                        >
+                            {user?.full_name ?? 'No name yet'}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setName(user?.full_name ?? '');
+                                setIsEditing(true);
+                            }}
+                            className="min-h-[36px] rounded-[8px] font-inter text-[13px] font-medium text-[var(--color-free)] hover:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)]"
+                        >
+                            {user?.full_name ? 'Edit name' : 'Add your name'}
+                        </button>
+                    </div>
+                )}
+                <p className="mt-1 font-inter text-[14px] text-[var(--color-ink)] break-all">{user?.email ?? '—'}</p>
+                <p className="mt-0.5 text-[13px] text-[var(--color-ink-muted)]">
+                    Timezone <span className="font-mono">{user?.timezone ?? '—'}</span>
+                </p>
+            </div>
+        </div>
+    );
+};
+
 export const Settings = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -339,22 +431,11 @@ export const Settings = () => {
                 </h1>
             </header>
 
-            <Card className="rounded-[16px] p-4 sm:p-5 flex items-center gap-4">
-                <span
-                    aria-hidden="true"
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-soft)] font-display text-[18px] font-semibold uppercase text-[var(--color-ink)]"
-                >
-                    {user?.email?.[0] ?? '?'}
-                </span>
-                <div className="min-w-0">
-                    <p className="font-inter text-[15px] font-medium text-[var(--color-ink)] break-all">
-                        {user?.email ?? '—'}
-                    </p>
-                    <p className="mt-0.5 text-[13px] text-[var(--color-ink-muted)]">
-                        Timezone <span className="font-mono">{user?.timezone ?? '—'}</span>
-                    </p>
-                </div>
-            </Card>
+            {user && (
+                <Card className="rounded-[16px] p-4 sm:p-5">
+                    <AccountSection />
+                </Card>
+            )}
 
             <Card className={card}>
                 <TelegramSection />

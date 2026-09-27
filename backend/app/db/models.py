@@ -69,6 +69,9 @@ class User(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), nullable=False)
+    # What the app calls you ("Good evening, Ismaeel"). Null for accounts made
+    # before it was asked for; the screens fall back to the email's first part.
+    full_name = Column(String(100), nullable=True)
     password_hash = Column(String(255), nullable=False)
     timezone = Column(String(64), nullable=False, default='UTC')
     telegram_chat_id = Column(String(64), nullable=True)

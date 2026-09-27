@@ -133,3 +133,34 @@ async def test_complete_onboarding_is_idempotent(auth_client):
 
     second = await auth_client.post("/api/users/me/complete-onboarding")
     assert second.json()["onboarding_completed_at"] == stamp
+
+
+async def test_signup_keeps_the_full_name(client, unique_email):
+    res = await client.post(
+        "/auth/signup",
+        json={"email": unique_email(), "password": "password123", "full_name": "  Ismaeel   Shaikh "},
+    )
+    assert res.status_code == 201, res.text
+    client.headers["Authorization"] = f"Bearer {res.json()['access_token']}"
+
+    me = (await client.get("/auth/me")).json()
+    # Spaces tidied, nothing else changed.
+    assert me["full_name"] == "Ismaeel Shaikh"
+
+
+async def test_signup_without_a_name_still_works(client, unique_email):
+    res = await client.post(
+        "/auth/signup", json={"email": unique_email(), "password": "password123"}
+    )
+    assert res.status_code == 201, res.text
+    client.headers["Authorization"] = f"Bearer {res.json()['access_token']}"
+
+    assert (await client.get("/auth/me")).json()["full_name"] is None
+
+
+async def test_signup_refuses_a_blank_name(client, unique_email):
+    res = await client.post(
+        "/auth/signup",
+        json={"email": unique_email(), "password": "password123", "full_name": "   "},
+    )
+    assert res.status_code == 422

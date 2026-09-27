@@ -11,6 +11,8 @@ export type FlexibleAvailability = 'free' | 'busy';
 export interface User {
     id: string;
     email: string;
+    /** Null for accounts made before signup asked for it. */
+    full_name: string | null;
     timezone: string;
     is_active: boolean;
     created_at: string;
@@ -26,6 +28,7 @@ export interface User {
 }
 
 export interface PreferencesUpdate {
+    full_name?: string;
     timezone?: string;
     day_start_time?: string;
     day_end_time?: string;

@@ -16,6 +16,41 @@ const authed = (overrides = {}) => ({
     },
 });
 
+describe('Settings — name', () => {
+    beforeEach(() => vi.unstubAllGlobals());
+
+    it('lets an account without a name add one', async () => {
+        const fetchMock = mockFetch({
+            ...authed({ full_name: null }),
+            '/api/users/me/preferences': { body: {} },
+        });
+
+        renderWithProviders(<Settings />);
+
+        expect(await screen.findByText('No name yet')).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Add your name' }));
+        await userEvent.type(screen.getByLabelText('Full name'), '  Ismaeel Shaikh ');
+        await userEvent.click(screen.getByRole('button', { name: 'Save name' }));
+
+        await waitFor(() => {
+            const patch = fetchMock.mock.calls.find(([url]) => String(url).includes('/preferences'));
+            expect(JSON.parse(String(patch?.[1]?.body))).toEqual({ full_name: 'Ismaeel Shaikh' });
+        });
+    }, 15000);
+
+    it('will not save a blank name', async () => {
+        mockFetch(authed({ full_name: 'Ismaeel' }));
+
+        renderWithProviders(<Settings />);
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Edit name' }));
+        await userEvent.clear(screen.getByLabelText('Full name'));
+        await userEvent.click(screen.getByRole('button', { name: 'Save name' }));
+
+        expect(await screen.findByText('Enter your name.')).toBeInTheDocument();
+    });
+});
+
 describe('Settings — active hours', () => {
     beforeEach(() => vi.unstubAllGlobals());
 

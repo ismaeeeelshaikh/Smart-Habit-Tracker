@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, EmailStr, field_validator
 
 PASSWORD_MIN_LENGTH = 8
+FULL_NAME_MAX_LENGTH = 100
 
 
 def validate_password_strength(v: str) -> str:
@@ -15,6 +16,18 @@ def validate_password_strength(v: str) -> str:
         )
     if not re.search(r"\d", v):
         raise ValueError("Password must contain at least 1 number.")
+    return v
+
+
+def validate_full_name(v: str | None) -> str | None:
+    """Trim it; refuse one that is blank or too long rather than store it."""
+    if v is None:
+        return None
+    v = " ".join(v.split())
+    if not v:
+        raise ValueError("Enter your name.")
+    if len(v) > FULL_NAME_MAX_LENGTH:
+        raise ValueError(f"Name must be at most {FULL_NAME_MAX_LENGTH} characters.")
     return v
 
 
@@ -44,6 +57,13 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    # Optional on the API so older clients still work; the signup form asks for it.
+    full_name: str | None = None
+
+    @field_validator("full_name")
+    @classmethod
+    def _validate_full_name(cls, v: str | None) -> str | None:
+        return validate_full_name(v)
 
     @field_validator("password")
     @classmethod
@@ -53,6 +73,7 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: uuid.UUID
+    full_name: str | None = None
     is_active: bool
     created_at: datetime
     onboarding_completed_at: datetime | None = None

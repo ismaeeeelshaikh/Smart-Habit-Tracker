@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { apiUrl } from '../api';
 
 export const Signup: React.FC = () => {
+    const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -13,12 +14,22 @@ export const Signup: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Field errors
+    const [nameError, setNameError] = useState('');
     const [emailError, setEmailError] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
     const { login } = useAuth();
     const navigate = useNavigate();
+
+    const validateName = () => {
+        if (!fullName.trim()) {
+            setNameError('Enter your name.');
+            return false;
+        }
+        setNameError('');
+        return true;
+    };
 
     const validateEmail = () => {
         const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -57,11 +68,12 @@ export const Signup: React.FC = () => {
         e.preventDefault();
         setError('');
 
+        const isNameValid = validateName();
         const isEmailValid = validateEmail();
         const isPasswordValid = validatePassword();
         const isConfirmPasswordValid = validateConfirmPassword();
 
-        if (!isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
+        if (!isNameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
             return;
         }
 
@@ -71,7 +83,7 @@ export const Signup: React.FC = () => {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, timezone })
+                body: JSON.stringify({ full_name: fullName.trim(), email, password, timezone })
             });
 
             if (!res.ok) {
@@ -111,6 +123,22 @@ export const Signup: React.FC = () => {
                     )}
                     
                     <div className="space-y-4">
+                        <div>
+                            <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="full-name">Full name</label>
+                            <input
+                                id="full-name"
+                                type="text"
+                                autoComplete="name"
+                                required
+                                maxLength={100}
+                                value={fullName}
+                                onChange={(e) => { setFullName(e.target.value); setNameError(''); }}
+                                onBlur={() => fullName && validateName()}
+                                className="block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] py-[10px] px-3 text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] sm:text-[15px]"
+                                placeholder="Your full name"
+                            />
+                            {nameError && <p className="mt-1 text-[13px] text-[var(--color-error)]">{nameError}</p>}
+                        </div>
                         <div>
                             <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="email">Email address</label>
                             <input
