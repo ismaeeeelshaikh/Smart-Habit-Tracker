@@ -2,6 +2,7 @@ import React, { useId, useState } from 'react';
 import { BellPlus } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { TimePicker } from '../ui/TimePicker';
 import type { RecurrenceRule, ReminderCreate } from '../../types';
 import { cn } from '../../utils/cn';
 
@@ -9,6 +10,17 @@ interface ReminderFormProps {
     onSubmit: (data: ReminderCreate) => Promise<unknown>;
     onCancel: () => void;
 }
+
+/** Local date as YYYY-MM-DD, what <input type="date"> speaks. */
+const localIso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** The next full hour, so the form opens on a sensible, future time. */
+const nextHour = (now = new Date()) => {
+    const d = new Date(now);
+    d.setHours(d.getHours() + 1, 0, 0, 0);
+    return { date: localIso(d), time: `${String(d.getHours()).padStart(2, '0')}:00` };
+};
 
 const REPEATS: { value: RecurrenceRule; label: string }[] = [
     { value: 'none', label: 'Once' },
@@ -31,7 +43,11 @@ const chip = (selected: boolean) =>
  */
 export const ReminderForm: React.FC<ReminderFormProps> = ({ onSubmit, onCancel }) => {
     const [label, setLabel] = useState('');
-    const [when, setWhen] = useState('');
+    // Split in two so the time can use the app's own 12-hour picker: a native
+    // datetime-local input shows 24-hour time on many phones.
+    const [date, setDate] = useState(() => nextHour().date);
+    const [time, setTime] = useState(() => nextHour().time);
+    const when = date ? `${date}T${time}` : '';
     const [recurrence, setRecurrence] = useState<RecurrenceRule>('none');
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,8 +77,8 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onSubmit, onCancel }
             await onSubmit({
                 goal_id: null,
                 label: label.trim(),
-                // A datetime-local value is the user's own wall clock, which is
-                // exactly how the server reads a naive time.
+                // A naive "YYYY-MM-DDTHH:MM" is the user's own wall clock, which
+                // is exactly how the server reads a naive time.
                 scheduled_time: when,
                 recurrence_rule: recurrence,
             });
@@ -76,8 +92,11 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onSubmit, onCancel }
     };
 
     return (
+        // noValidate: the date's `min` greys out past days in the picker, but the
+        // message for a past time should be ours, next to the fields.
         <form
             onSubmit={handleSubmit}
+            noValidate
             aria-labelledby={titleId}
             className="flex flex-col gap-4 rounded-[16px] border border-[var(--color-free)]/40 bg-[var(--color-surface)] p-4 sm:p-5"
         >
@@ -110,17 +129,26 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ onSubmit, onCancel }
                 />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-[var(--color-ink)]" htmlFor="reminder-when">
-                    When
-                </label>
-                <Input
-                    id="reminder-when"
-                    type="datetime-local"
-                    value={when}
-                    onChange={(e) => setWhen(e.target.value)}
-                    className="font-mono"
-                />
+            <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] font-medium text-[var(--color-ink)]" htmlFor="reminder-date">
+                        Date
+                    </label>
+                    <Input
+                        id="reminder-date"
+                        type="date"
+                        min={localIso(new Date())}
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="font-mono"
+                    />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] font-medium text-[var(--color-ink)]" htmlFor="reminder-time">
+                        Time
+                    </label>
+                    <TimePicker id="reminder-time" value={time} onChange={setTime} />
+                </div>
             </div>
 
             <fieldset className="flex flex-col gap-2">

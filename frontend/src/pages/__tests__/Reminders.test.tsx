@@ -22,11 +22,11 @@ const makeReminder = (overrides = {}) => ({
     ...overrides,
 });
 
-/** A datetime-local value ("YYYY-MM-DDTHH:mm") a week out, so it is always future. */
-const futureLocalValue = () => {
+/** A date-input value ("YYYY-MM-DD") a week out, so it is always future. */
+const futureDate = () => {
     const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 describe('Reminders', () => {
@@ -125,8 +125,8 @@ describe('Reminders', () => {
 
         await userEvent.click(await screen.findByRole('button', { name: 'Add reminder' }));
         await userEvent.type(screen.getByLabelText('Remind me to'), 'Stretch');
-        // datetime-local doesn't accept typed input reliably; set it directly.
-        fireEvent.change(screen.getByLabelText('When'), { target: { value: futureLocalValue() } });
+        // A date input doesn't accept typed input reliably; set it directly.
+        fireEvent.change(screen.getByLabelText('Date'), { target: { value: futureDate() } });
         await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
         await waitFor(() => {
@@ -150,9 +150,7 @@ describe('Reminders', () => {
 
         await userEvent.click(await screen.findByRole('button', { name: 'Add reminder' }));
         await userEvent.type(screen.getByLabelText('Remind me to'), 'Too late');
-        fireEvent.change(screen.getByLabelText('When'), {
-            target: { value: '2020-01-01T09:00' },
-        });
+        fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2020-01-01' } });
         await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
         expect(await screen.findByText('Pick a time in the future.')).toBeInTheDocument();
