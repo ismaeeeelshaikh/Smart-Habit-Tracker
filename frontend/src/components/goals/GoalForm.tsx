@@ -52,7 +52,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({ initialData, onSubmit, onCan
     };
 
     return (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 border border-border bg-card rounded-lg mt-2">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 border border-[var(--color-free)]/40 bg-[var(--color-surface)] rounded-[16px]">
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-foreground">Goal Name (e.g. Learn React)</label>
                 <Input
@@ -63,12 +63,13 @@ export const GoalForm: React.FC<GoalFormProps> = ({ initialData, onSubmit, onCan
                 />
             </div>
             
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-foreground">Priority</label>
                 <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value as Priority)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-11 w-full rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[15px] text-[var(--color-ink)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)] disabled:cursor-not-allowed disabled:opacity-50"
                     required
                 >
                     <option value="" disabled>Select priority...</option>
@@ -88,10 +89,11 @@ export const GoalForm: React.FC<GoalFormProps> = ({ initialData, onSubmit, onCan
                     required
                 />
             </div>
+            </div>
 
             {error && <p className="text-sm text-destructive font-medium">{error}</p>}
 
-            <div className="flex gap-2 justify-end mt-2">
+            <div className="flex gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
                     Cancel
                 </Button>

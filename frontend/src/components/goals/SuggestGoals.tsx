@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, Square } from 'lucide-react';
+import { Check, Mic, Plus, Sparkles, Square } from 'lucide-react';
 import { suggestGoals } from '../../api';
 import { isVoiceSupported, useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import type { GoalCreate, GoalSuggestion } from '../../types';
@@ -65,12 +65,19 @@ export const SuggestGoals: React.FC<SuggestGoalsProps> = ({ onAdd }) => {
     };
 
     return (
-        <section className="border border-border rounded-lg bg-card p-4 flex flex-col gap-3">
-            <div>
-                <h2 className="font-semibold text-lg">Not sure what to work on?</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                    Get a few habits sized to the free time your week really has. Add the ones you like.
-                </p>
+        <section className="border border-[var(--color-border)] rounded-[16px] bg-[var(--color-surface)] p-4 sm:p-5 flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+                <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--color-free-tint)] text-[var(--color-free)]">
+                    <Sparkles className="h-4 w-4" />
+                </span>
+                <div>
+                    <h2 className="font-display font-semibold text-[17px] leading-tight text-[var(--color-ink)]">
+                        Not sure what to work on?
+                    </h2>
+                    <p className="text-[13px] text-[var(--color-ink-muted)] mt-1 leading-snug">
+                        Get a few habits sized to the free time your week really has. Add the ones you like.
+                    </p>
+                </div>
             </div>
 
             <textarea
@@ -82,10 +89,10 @@ export const SuggestGoals: React.FC<SuggestGoalsProps> = ({ onAdd }) => {
                 placeholder="Optional: final year IT student, placements coming up, want to stay fit…"
                 rows={2}
                 maxLength={500}
-                className="w-full rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[15px] text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
+                className="w-full rounded-[12px] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] leading-relaxed text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
             />
 
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 {canUseVoice && (
                     <Button
                         type="button"
@@ -110,7 +117,7 @@ export const SuggestGoals: React.FC<SuggestGoalsProps> = ({ onAdd }) => {
                         )}
                     </Button>
                 )}
-                <Button onClick={ask} disabled={isAsking || voice.state !== 'idle'}>
+                <Button className="flex-1" onClick={ask} disabled={isAsking || voice.state !== 'idle'}>
                     {isAsking ? 'Thinking…' : 'Suggest goals'}
                 </Button>
             </div>
@@ -119,7 +126,7 @@ export const SuggestGoals: React.FC<SuggestGoalsProps> = ({ onAdd }) => {
             {error && <p className="text-sm text-destructive font-medium">{error}</p>}
 
             {suggestions && (
-                <div className="flex flex-col gap-2 border-t border-border pt-3" aria-live="polite">
+                <div className="flex flex-col gap-2 border-t border-[var(--color-border)] pt-3" aria-live="polite">
                     {suggestions.length > 0 ? (
                         <ul className="flex flex-col gap-2">
                             {suggestions.map((s) => {
@@ -127,13 +134,13 @@ export const SuggestGoals: React.FC<SuggestGoalsProps> = ({ onAdd }) => {
                                 return (
                                     <li
                                         key={s.name}
-                                        className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md border border-border bg-background"
+                                        className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-[12px] bg-[var(--color-surface-soft)]"
                                     >
                                         <div className="min-w-0 flex-1">
-                                            <p className="flex flex-wrap items-center gap-2 font-medium break-words">
+                                            <p className="flex flex-wrap items-center gap-2 font-display text-[15px] font-semibold text-[var(--color-ink)] break-words">
                                                 {s.name}
                                                 <Badge priority={s.priority} />
-                                                <span className="text-sm font-normal text-muted-foreground">
+                                                <span className="font-mono text-[12px] font-normal text-[var(--color-ink-muted)]">
                                                     {formatDuration(s.estimated_duration_minutes)}
                                                 </span>
                                             </p>
@@ -143,15 +150,24 @@ export const SuggestGoals: React.FC<SuggestGoalsProps> = ({ onAdd }) => {
                                                 </p>
                                             )}
                                         </div>
-                                        <Button
-                                            variant="secondary"
-                                            className="text-sm px-3 py-1.5 h-auto"
+                                        <button
+                                            type="button"
                                             onClick={() => add(s)}
                                             disabled={isAdded || addingName !== null}
                                             aria-label={isAdded ? `${s.name} added` : `Add ${s.name}`}
+                                            className={`inline-flex min-h-[40px] items-center gap-1 rounded-full border border-[var(--color-free)] px-3.5 font-inter text-[13px] font-semibold touch-manipulation transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)] focus-visible:ring-offset-2 ${
+                                                isAdded
+                                                    ? 'bg-[var(--color-free)] text-[var(--color-on-free)]'
+                                                    : 'bg-[var(--color-surface)] text-[var(--color-free)] hover:bg-[var(--color-free-tint)] disabled:opacity-60'
+                                            }`}
                                         >
+                                            {isAdded ? (
+                                                <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} />
+                                            ) : (
+                                                <Plus aria-hidden="true" className="h-3.5 w-3.5" />
+                                            )}
                                             {isAdded ? 'Added' : addingName === s.name ? 'Adding…' : 'Add'}
-                                        </Button>
+                                        </button>
                                     </li>
                                 );
                             })}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { Check, ChevronDown, ListChecks, X } from 'lucide-react';
 import { breakDownGoal } from '../../api';
 import type { Goal, GoalStep } from '../../types';
 import { Button } from '../ui/Button';
@@ -7,7 +7,7 @@ import { Button } from '../ui/Button';
 const MAX_STEPS = 30;
 
 const inputClass =
-    'h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]';
+    'h-10 rounded-[8px] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]';
 
 interface GoalStepsProps {
     goal: Goal;
@@ -80,7 +80,7 @@ export const GoalSteps: React.FC<GoalStepsProps> = ({ goal, onSave }) => {
     // --- writing or reviewing a list -------------------------------------------------
     if (draft !== null) {
         return (
-            <div className="flex flex-col gap-2 border-t border-border pt-3">
+            <div className="flex flex-col gap-2 border-t border-[var(--color-border)] pt-3">
                 <div className="flex flex-wrap items-end gap-2">
                     <label className="flex flex-col gap-1 text-sm font-medium flex-1 min-w-[12rem]">
                         What do you already know? (optional)
@@ -171,11 +171,16 @@ export const GoalSteps: React.FC<GoalStepsProps> = ({ goal, onSave }) => {
     // --- no steps yet -------------------------------------------------------------------
     if (steps.length === 0) {
         return (
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-                <p className="text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border)] pt-3">
+                <p className="flex-1 min-w-[12rem] text-[13px] text-[var(--color-ink-muted)]">
                     Break it into steps and each suggestion will say what to do today.
                 </p>
-                <Button variant="secondary" className="text-sm px-3 py-1.5 h-auto" onClick={() => setDraft([])}>
+                <Button
+                    variant="secondary"
+                    className="text-sm px-3 py-1.5 h-auto gap-1.5"
+                    onClick={() => setDraft([])}
+                >
+                    <ListChecks aria-hidden="true" className="h-4 w-4" />
                     Break it down
                 </Button>
             </div>
@@ -183,54 +188,78 @@ export const GoalSteps: React.FC<GoalStepsProps> = ({ goal, onSave }) => {
     }
 
     // --- the saved list ---------------------------------------------------------------------
+    const percent = Math.round((doneCount / steps.length) * 100);
     return (
-        <div className="flex flex-col gap-2 border-t border-border pt-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <button
-                    type="button"
-                    onClick={() => setIsOpen(!isOpen)}
-                    aria-expanded={isOpen}
-                    aria-controls={panelId}
-                    className="inline-flex items-center gap-2 text-sm text-left rounded-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
-                >
-                    <ChevronDown
-                        aria-hidden="true"
-                        className={`h-4 w-4 transition-transform motion-reduce:transition-none ${isOpen ? '' : '-rotate-90'}`}
-                    />
-                    <span className="font-medium tabular-nums">
+        <div className="flex flex-col gap-2.5 border-t border-[var(--color-border)] pt-3">
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                aria-expanded={isOpen}
+                aria-controls={panelId}
+                className="grid gap-2 rounded-[10px] text-left touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)] focus-visible:ring-offset-2"
+            >
+                <span className="flex items-center gap-3">
+                    <span aria-hidden="true" className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-soft)]">
+                        <span
+                            className="block h-full rounded-full bg-[var(--color-free)] transition-[width] duration-500"
+                            style={{ width: `${percent}%` }}
+                        />
+                    </span>
+                    <span className="font-mono text-[12px] font-medium text-[var(--color-ink-muted)] tabular-nums">
                         Steps {doneCount}/{steps.length}
                     </span>
-                    <span className="text-muted-foreground min-w-0 break-words">
-                        {today ? `· Today: ${today}` : '· All done'}
-                    </span>
-                </button>
-                <Button
-                    variant="secondary"
-                    className="text-sm px-3 py-1.5 h-auto"
-                    onClick={() => setDraft(steps.map((s) => s.title))}
-                >
-                    Edit steps
-                </Button>
-            </div>
+                    <ChevronDown
+                        aria-hidden="true"
+                        className={`h-4 w-4 shrink-0 text-[var(--color-ink-muted)] transition-transform motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                </span>
+                <span className="inline-flex max-w-full items-center gap-1.5 justify-self-start rounded-[10px] bg-[var(--color-free-tint)] px-2.5 py-1.5 font-inter text-[13px] text-[var(--color-free)] break-words">
+                    {today ? (
+                        <>
+                            Today: <b className="font-semibold">{today}</b>
+                        </>
+                    ) : (
+                        'All done'
+                    )}
+                </span>
+            </button>
 
-            <ul id={panelId} hidden={!isOpen} className="flex flex-col gap-1.5 pl-6">
+            <ul id={panelId} hidden={!isOpen} className="flex flex-col gap-1">
                 {steps.map((step, index) => (
                     <li key={`${index}-${step.title}`}>
-                        <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
+                        <label className="flex min-h-[40px] items-center gap-3 rounded-[8px] px-1 text-[14px] cursor-pointer select-none hover:bg-[var(--color-surface-soft)]">
                             <input
                                 type="checkbox"
                                 checked={step.done}
                                 disabled={isBusy}
                                 onChange={() => toggle(index)}
-                                className="mt-0.5 h-4 w-4 rounded border-input"
+                                className="peer sr-only"
                             />
-                            <span className={`min-w-0 break-words ${step.done ? 'line-through text-muted-foreground' : ''}`}>
+                            <span
+                                aria-hidden="true"
+                                className={`grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[6px] border-[1.5px] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-free)] ${
+                                    step.done
+                                        ? 'border-[var(--color-free)] bg-[var(--color-free)] text-[var(--color-on-free)]'
+                                        : 'border-[var(--color-border)]'
+                                }`}
+                            >
+                                {step.done && <Check className="h-3 w-3" strokeWidth={3.5} />}
+                            </span>
+                            <span className={`min-w-0 break-words ${step.done ? 'line-through text-[var(--color-ink-muted)]' : 'text-[var(--color-ink)]'}`}>
                                 {step.title}
                             </span>
                         </label>
                     </li>
                 ))}
             </ul>
+
+            <button
+                type="button"
+                onClick={() => setDraft(steps.map((s) => s.title))}
+                className="justify-self-start min-h-[36px] rounded-[8px] font-inter text-[13px] font-medium text-[var(--color-free)] hover:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)]"
+            >
+                Edit steps
+            </button>
 
             {error && <p className="text-sm text-destructive font-medium">{error}</p>}
         </div>

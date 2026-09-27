@@ -9,22 +9,22 @@ export const Goals = () => {
   const showNoActiveWarning = !isLoading && !error && goals.length > 0 && !hasActiveGoals;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 max-w-4xl mx-auto mb-12">
+    <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300 max-w-[720px] mx-auto mb-12">
       <header>
-        <h1 className="font-display font-semibold text-[24px]">Goals</h1>
-        <p className="text-[var(--color-ink-muted)]">Manage your habit goals.</p>
+        <h1 className="font-display font-semibold text-[26px] leading-[32px] sm:text-[28px] text-[var(--color-ink)]">
+          Goals
+        </h1>
+        <p className="text-[13px] text-[var(--color-ink-muted)] mt-1">What you're making time for</p>
       </header>
 
       {showNoActiveWarning && (
-        <div className="p-4 rounded-lg bg-[var(--color-priority-medium)]/10 text-[var(--color-priority-medium)] border border-[var(--color-priority-medium)]/20 text-sm font-medium">
+        <div className="px-4 py-3 rounded-[12px] bg-[var(--color-warning-bg)] text-[var(--color-ink)] text-[15px] leading-[22px]">
           You have no active goals — you won't receive any suggestions. Add or activate a goal to
           resume tracking.
         </div>
       )}
 
       {error && <p className="text-[var(--color-error)] font-medium">{error}</p>}
-
-      <SuggestGoals onAdd={addGoal} />
 
       {isLoading ? (
         <div className="flex justify-center p-8">
@@ -38,6 +38,9 @@ export const Goals = () => {
           onDeleteGoal={removeGoal}
         />
       )}
+
+      {/* Below your own goals: most visits are to tick a step, not to find new habits. */}
+      <SuggestGoals onAdd={addGoal} />
     </div>
   );
 };
