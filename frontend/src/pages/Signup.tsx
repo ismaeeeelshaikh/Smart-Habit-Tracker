@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
+import { AuthLayout, PasswordInput, authInput, authLabel } from '../components/auth/AuthLayout';
 import { apiUrl } from '../api';
 
 export const Signup: React.FC = () => {
@@ -107,93 +108,91 @@ export const Signup: React.FC = () => {
         }
     };
 
-    return (
-        <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)] p-4">
-            <div className="w-full max-w-md space-y-8 rounded-[10px] bg-[var(--color-surface)] p-8 shadow-sm border border-[var(--color-border)]">
-                <div className="text-center">
-                    <h2 className="text-[24px] font-display font-semibold text-[var(--color-ink)]">Create Account</h2>
-                    <p className="mt-2 text-[15px] font-inter text-[var(--color-ink-muted)]">Start managing your time intelligently</p>
-                </div>
-                
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    {error && (
-                        <div className="rounded-[10px] bg-[var(--color-warning-bg)] p-4 text-[13px] text-[var(--color-ink)] border border-[var(--color-border)] font-medium">
-                            {error}
-                        </div>
-                    )}
-                    
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="full-name">Full name</label>
-                            <input
-                                id="full-name"
-                                type="text"
-                                autoComplete="name"
-                                required
-                                maxLength={100}
-                                value={fullName}
-                                onChange={(e) => { setFullName(e.target.value); setNameError(''); }}
-                                onBlur={() => fullName && validateName()}
-                                className="block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] py-[10px] px-3 text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] sm:text-[15px]"
-                                placeholder="Your full name"
-                            />
-                            {nameError && <p className="mt-1 text-[13px] text-[var(--color-error)]">{nameError}</p>}
-                        </div>
-                        <div>
-                            <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="email">Email address</label>
-                            <input
-                                id="email"
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
-                                onBlur={validateEmail}
-                                className="block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] py-[10px] px-3 text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] sm:text-[15px]"
-                                placeholder="Email address"
-                            />
-                            {emailError && <p className="mt-1 text-[13px] text-[var(--color-error)]">{emailError}</p>}
-                        </div>
-                        <div>
-                            <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="password">Password</label>
-                            <input
-                                id="password"
-                                type="password"
-                                required
-                                value={password}
-                                onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
-                                onBlur={validatePassword}
-                                className="block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] py-[10px] px-3 text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] sm:text-[15px]"
-                                placeholder="Password"
-                            />
-                            {passwordError && <p className="mt-1 text-[13px] text-[var(--color-error)]">{passwordError}</p>}
-                        </div>
-                        <div>
-                            <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="confirm-password">Confirm Password</label>
-                            <input
-                                id="confirm-password"
-                                type="password"
-                                required
-                                value={confirmPassword}
-                                onChange={(e) => { setConfirmPassword(e.target.value); setConfirmPasswordError(''); }}
-                                onBlur={validateConfirmPassword}
-                                className="block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] py-[10px] px-3 text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] sm:text-[15px]"
-                                placeholder="Confirm Password"
-                            />
-                            {confirmPasswordError && <p className="mt-1 text-[13px] text-[var(--color-error)]">{confirmPasswordError}</p>}
-                        </div>
-                    </div>
+    const fieldError = (message: string) =>
+        message ? <p className="mt-1.5 text-[13px] text-[var(--color-error)]">{message}</p> : null;
 
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
-                        {isSubmitting ? 'Creating account…' : 'Sign up'}
-                    </Button>
-                </form>
-                
-                <div className="text-center text-[15px]">
-                    <Link to="/login" className="font-medium text-[var(--color-free)] hover:brightness-90 transition-all">
-                        Already have an account? Log in
-                    </Link>
+    return (
+        <AuthLayout title="Create your account" subtitle="Takes a minute. Then you set up your week.">
+            <form className="space-y-5" onSubmit={handleSubmit}>
+                {error && (
+                    <div role="alert" className="rounded-[12px] bg-[var(--color-warning-bg)] px-4 py-3 text-[14px] font-medium text-[var(--color-ink)]">
+                        {error}
+                    </div>
+                )}
+
+                <div>
+                    <label className={authLabel} htmlFor="full-name">Full name</label>
+                    <input
+                        id="full-name"
+                        type="text"
+                        autoComplete="name"
+                        required
+                        maxLength={100}
+                        value={fullName}
+                        onChange={(e) => { setFullName(e.target.value); setNameError(''); }}
+                        onBlur={() => fullName && validateName()}
+                        className={authInput}
+                        placeholder="Your full name"
+                    />
+                    {fieldError(nameError)}
                 </div>
-            </div>
-        </div>
+                <div>
+                    <label className={authLabel} htmlFor="email">Email address</label>
+                    <input
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={email}
+                        onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
+                        onBlur={validateEmail}
+                        className={authInput}
+                        placeholder="you@example.com"
+                    />
+                    {fieldError(emailError)}
+                </div>
+                <div>
+                    <label className={authLabel} htmlFor="password">Password</label>
+                    <PasswordInput
+                        id="password"
+                        autoComplete="new-password"
+                        required
+                        value={password}
+                        onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+                        onBlur={validatePassword}
+                    />
+                    {passwordError ? (
+                        fieldError(passwordError)
+                    ) : (
+                        <p className="mt-1.5 text-[12px] text-[var(--color-ink-muted)]">
+                            At least 8 characters, with a number.
+                        </p>
+                    )}
+                </div>
+                <div>
+                    <label className={authLabel} htmlFor="confirm-password">Confirm Password</label>
+                    <PasswordInput
+                        id="confirm-password"
+                        autoComplete="new-password"
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => { setConfirmPassword(e.target.value); setConfirmPasswordError(''); }}
+                        onBlur={validateConfirmPassword}
+                    />
+                    {fieldError(confirmPasswordError)}
+                </div>
+
+                <Button type="submit" className="w-full h-12 rounded-[12px]" disabled={isSubmitting}>
+                    {isSubmitting ? 'Creating account…' : 'Sign up'}
+                </Button>
+            </form>
+
+            <p className="mt-6 text-center text-[14px] text-[var(--color-ink-muted)]">
+                Already have an account?{' '}
+                <Link to="/login" className="font-semibold text-[var(--color-free)] hover:brightness-90">
+                    Sign in
+                </Link>
+            </p>
+        </AuthLayout>
     );
 };

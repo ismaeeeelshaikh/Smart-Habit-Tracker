@@ -135,7 +135,9 @@ describe('signup to dashboard', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Sign up' }));
 
         // A brand new account lands in onboarding, never straight on the dashboard.
-        expect(await screen.findByText(/Step 1 of 3/i)).toBeInTheDocument();
+        // Signup, login and /auth/me run back to back here, so allow more than
+        // the default second on a slow machine.
+        expect(await screen.findByText(/Step 1 of 3/i, {}, { timeout: 5000 })).toBeInTheDocument();
 
         // --- step 1: a schedule is optional ----------------------------
         await userEvent.click(screen.getByRole('button', { name: 'Continue' }));

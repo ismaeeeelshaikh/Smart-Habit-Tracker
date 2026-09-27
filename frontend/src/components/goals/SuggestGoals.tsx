@@ -86,7 +86,7 @@ export const SuggestGoals: React.FC<SuggestGoalsProps> = ({ onAdd }) => {
                 autoComplete="off"
                 value={about}
                 onChange={(e) => setAbout(e.target.value)}
-                placeholder="Optional: final year IT student, placements coming up, want to stay fit…"
+                placeholder="Optional: a little about you — busy job, want to read more, stay fit…"
                 rows={2}
                 maxLength={500}
                 className="w-full rounded-[12px] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] leading-relaxed text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"

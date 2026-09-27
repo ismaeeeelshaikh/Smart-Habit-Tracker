@@ -147,7 +147,7 @@ export const QuietDays: React.FC<QuietDaysProps> = ({ quietDays, onChangeQuietDa
                 <div>
                     <h2 className="font-display font-semibold text-[17px] leading-tight text-[var(--color-ink)]">Quiet days</h2>
                     <p className="text-[13px] text-[var(--color-ink-muted)] mt-1 leading-snug">
-                        No lecture warnings and no suggestions on these days. Reminders you set yourself still
+                        No schedule warnings and no suggestions on these days. Reminders you set yourself still
                         arrive.
                     </p>
                 </div>

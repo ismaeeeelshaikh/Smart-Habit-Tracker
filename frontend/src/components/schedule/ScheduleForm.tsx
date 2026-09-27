@@ -106,7 +106,7 @@ export const ScheduleForm: React.FC<ScheduleFormProps> = ({
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 border border-border bg-card rounded-lg mt-2">
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-foreground" htmlFor="block-label">
-                    {isWholeDay ? 'What is this day? (e.g. Diwali, Rest day)' : 'Label (e.g. College, Gym)'}
+                    {isWholeDay ? 'What is this day? (e.g. Diwali, Rest day)' : 'Label (e.g. Work, Gym)'}
                 </label>
                 <Input
                     id="block-label"

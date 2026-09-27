@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
+import { AuthLayout, PasswordInput, authInput, authLabel } from '../components/auth/AuthLayout';
 import { apiUrl } from '../api';
 
 export const Login: React.FC = () => {
@@ -41,61 +42,54 @@ export const Login: React.FC = () => {
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)] p-4">
-            <div className="w-full max-w-md space-y-8 rounded-[10px] bg-[var(--color-surface)] p-8 shadow-sm border border-[var(--color-border)]">
-                <div className="text-center">
-                    <h2 className="text-[24px] font-display font-semibold text-[var(--color-ink)]">Sign in</h2>
-                    <p className="mt-2 text-[15px] font-inter text-[var(--color-ink-muted)]">Welcome back to Personal Time Intelligence</p>
-                </div>
-                
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    {error && (
-                        <div className="rounded-[10px] bg-[var(--color-warning-bg)] p-4 text-[13px] text-[var(--color-ink)] border border-[var(--color-border)] font-medium">
-                            {error}
-                        </div>
-                    )}
-                    
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="email">Email address</label>
-                            <input
-                                id="email"
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] py-[10px] px-3 text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] sm:text-[15px]"
-                                placeholder="Email address"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-[13px] font-medium text-[var(--color-ink)] mb-1" htmlFor="password">Password</label>
-                            <input
-                                id="password"
-                                type="password"
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] py-[10px] px-3 text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-free)] sm:text-[15px]"
-                                placeholder="Password"
-                            />
-                        </div>
+        <AuthLayout title="Welcome back" subtitle="Sign in to see today's free time.">
+            <form className="space-y-5" onSubmit={handleSubmit}>
+                {error && (
+                    <div role="alert" className="rounded-[12px] bg-[var(--color-warning-bg)] px-4 py-3 text-[14px] font-medium text-[var(--color-ink)]">
+                        {error}
                     </div>
+                )}
 
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
-                        {isSubmitting ? 'Signing in…' : 'Sign in'}
-                    </Button>
-                </form>
-                
-                <div className="text-center text-[15px] space-y-3 flex flex-col">
-                    <Link to="/signup" className="font-medium text-[var(--color-free)] hover:brightness-90 transition-all">
-                        Don't have an account? Sign up
-                    </Link>
-                    <span title="Coming soon" className="font-medium text-[var(--color-ink-muted)] opacity-50 cursor-not-allowed pointer-events-none text-[13px]">
-                        Forgot password?
-                    </span>
+                <div>
+                    <label className={authLabel} htmlFor="email">Email address</label>
+                    <input
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={authInput}
+                        placeholder="you@example.com"
+                    />
                 </div>
-            </div>
-        </div>
+                <div>
+                    <div className="mb-1.5 flex items-baseline justify-between">
+                        <label className="text-[13px] font-medium text-[var(--color-ink)]" htmlFor="password">Password</label>
+                        <span title="Coming soon" className="text-[12px] text-[var(--color-ink-muted)] opacity-60">
+                            Forgot password?
+                        </span>
+                    </div>
+                    <PasswordInput
+                        id="password"
+                        autoComplete="current-password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                    />
+                </div>
+
+                <Button type="submit" className="w-full h-12 rounded-[12px]" disabled={isSubmitting}>
+                    {isSubmitting ? 'Signing in…' : 'Sign in'}
+                </Button>
+            </form>
+
+            <p className="mt-6 text-center text-[14px] text-[var(--color-ink-muted)]">
+                New here?{' '}
+                <Link to="/signup" className="font-semibold text-[var(--color-free)] hover:brightness-90">
+                    Create an account
+                </Link>
+            </p>
+        </AuthLayout>
     );
 };

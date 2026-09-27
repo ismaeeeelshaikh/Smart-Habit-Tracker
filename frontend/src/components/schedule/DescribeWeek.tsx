@@ -24,7 +24,7 @@ const DAY_LABELS: Record<string, string> = {
     sun: 'Sunday',
 };
 
-const EXAMPLE = 'Mon to Fri college 9am to 3pm, gym Tuesday and Thursday 6 to 7pm, cricket Sunday morning 7 to 9…';
+const EXAMPLE = 'Mon to Fri work 9am to 5pm, gym Tuesday and Thursday 6 to 7pm, football Sunday morning 7 to 9…';
 
 interface DescribeWeekProps {
     /** Called after blocks are saved, so the week below reloads. */
@@ -162,7 +162,7 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
             </div>
 
             <div className="flex flex-col gap-2 rounded-[12px] border-[1.5px] border-dashed border-[var(--color-border)] p-3">
-                <p className="text-[14px] font-medium text-[var(--color-ink)]">Have your college timetable as a PDF?</p>
+                <p className="text-[14px] font-medium text-[var(--color-ink)]">Have your timetable as a PDF?</p>
                 <div className="flex flex-wrap items-center gap-2">
                     <label className="inline-flex min-h-[44px] items-center gap-2 cursor-pointer rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm hover:border-[var(--color-free)] focus-within:ring-[3px] focus-within:ring-[var(--color-free-tint)]">
                         <FileUp aria-hidden="true" className="h-4 w-4" />
@@ -180,8 +180,8 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                     </Button>
                 </div>
                 <p className="text-[13px] text-[var(--color-ink-muted)]">
-                    Every batch's and elective's option is listed, like "DSL / IOE / ROSPL lab". Remove any
-                    class that isn't yours before saving.
+                    When a slot has several options, all of them are listed, like "Group A / Group B". Remove
+                    any that isn't yours before saving.
                 </p>
             </div>
 

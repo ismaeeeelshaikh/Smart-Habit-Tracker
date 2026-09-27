@@ -219,6 +219,8 @@ Chosen by the product owner on 27 Sep 2026 after the first build read as "too pl
 
 - **Schedule page has no Week Strip** (product owner, 27 Sep 2026), overriding Section 4.2 for that screen. Each day card shows a thin one-line busy bar instead.
 
+- **Sign in / Sign up brand panel** (added 27 Sep 2026): the same hero surface, as a panel beside the form on wide screens and a strip above it on phones, with the app's one-line promise and a small drawing of a day.
+
 Still ruled out: gradients anywhere else, glassmorphism beyond the tab bar, confetti or streak effects, and a second brand colour.
 
 ---
