@@ -298,6 +298,9 @@ export const updateReminderStatus = (id: string, status: ReminderStatus): Promis
         "Couldn't update reminder.",
     );
 
+export const deleteReminder = (id: string): Promise<void> =>
+    request<void>(`/api/reminders/${id}`, { method: 'DELETE' }, "Couldn't delete that reminder. Please try again.");
+
 // --- Telegram --------------------------------------------------------------
 
 export const createLinkCode = (): Promise<LinkCode> =>

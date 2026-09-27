@@ -308,6 +308,8 @@ Onboarding is a **linear 3-step wizard**. Users cannot skip ahead, but can go ba
 
 **Purpose:** View history and status of reminders (read-only in MVP web app — actioning Done/Later/Skip happens via Telegram, not here).
 
+**Revised 27 Sep 2026 (product owner):** this screen is only for the user's *own* reminders — something that came up and isn't in the schedule. It lists what's coming up (one-offs by day, then repeating ones). Goal-suggestion reminders, past reminders, status badges and the status/date filters are no longer shown here; suggestions are answered on the Dashboard and in Telegram. The form has no quick-time buttons. Each reminder has a delete button with an inline confirm ("Delete this reminder?", or "Stop this reminder?" for a repeating one), calling `DELETE /reminders/{id}`. Where the rest of this section says otherwise, this note wins.
+
 **Entry points:** Global nav "Reminders" link.
 
 **Elements:**
@@ -316,7 +318,7 @@ Onboarding is a **linear 3-step wizard**. Users cannot skip ahead, but can go ba
 - "Add manual reminder" button (maps to `/add` Telegram command equivalent on web)
 
 **Add manual reminder sub-form:**
-- Task/goal selector (dropdown of active goals, or free-text label for a one-off)
+- "Remind me to" free-text label. **Changed 27 Sep 2026:** no goal selector — goals are already reminded through free-slot suggestions (with today's step), and a fixed-time goal reminder ignored the schedule and competed with them. The API still accepts `goal_id`; suggestions use it.
 - Date + time picker
 - Recurrence selector: None / Daily / Weekdays (simple presets only — no custom cron in MVP UI)
 - "Save" / "Cancel"

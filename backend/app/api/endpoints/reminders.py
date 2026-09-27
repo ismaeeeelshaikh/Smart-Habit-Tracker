@@ -249,3 +249,21 @@ async def update_reminder_status(
     await db.commit()
     await db.refresh(db_reminder)
     return db_reminder
+
+
+@router.delete("/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_reminder(
+    *,
+    db: AsyncSession = Depends(get_db),
+    reminder_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+):
+    """Delete one of the current user's reminders, e.g. one added by mistake.
+
+    Its completion_logs go with it (ON DELETE CASCADE), so a deleted reminder
+    stops counting in the weekly stats. A recurring one stops for good.
+    """
+    db_reminder = await _get_owned_reminder(db, reminder_id, current_user)
+    await db.delete(db_reminder)
+    await db.commit()
+    return None

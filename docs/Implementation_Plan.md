@@ -121,7 +121,7 @@
 3. Write unit tests for both with fixed input/output fixtures — no randomness, fully deterministic, per Implementation Spec Sprint 2 guidance
 4. Package `slot_engine.py`/`allocator.py` as a shared internal module importable by both `backend` and `scheduler` containers (per TRD Section 6.4) — do not duplicate this logic
 5. Implement `GET /slots/free` and `GET /slots/next` endpoints
-6. Implement `POST /reminders`, `GET /reminders`, `PUT /reminders/{id}/status` endpoints
+6. Implement `POST /reminders`, `GET /reminders`, `PUT /reminders/{id}/status` endpoints (plus `DELETE /reminders/{id}`, added 27 Sep 2026 so a mistaken reminder can be removed; owner-only, 404 otherwise, its completion_logs cascade)
 7. Build the Reminders screen (`/reminders`) per UX Flow Document Section 8, including the manual "Add reminder" sub-form with recurrence presets (None/Daily/Weekdays — no NLP parsing)
 8. Build Dashboard screen per UX Flow Document Section 5, wiring in real `/slots/free`, `/slots/next` data plus the Week Strip (today view)
 

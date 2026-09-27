@@ -1,37 +1,47 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
+import { BellPlus } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import type { Goal, RecurrenceRule, ReminderCreate } from '../../types';
+import type { RecurrenceRule, ReminderCreate } from '../../types';
+import { cn } from '../../utils/cn';
 
 interface ReminderFormProps {
-    /** Active goals only — a reminder for a paused goal isn't offered. */
-    goals: Goal[];
     onSubmit: (data: ReminderCreate) => Promise<unknown>;
     onCancel: () => void;
 }
 
-const SELECT_CLASS =
-    'w-full h-10 px-3 rounded-[8px] border border-[var(--color-border)] bg-transparent ' +
-    'text-[15px] font-inter focus:outline-none focus:ring-2 focus:ring-[var(--color-free)]';
+const REPEATS: { value: RecurrenceRule; label: string }[] = [
+    { value: 'none', label: 'Once' },
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekdays', label: 'Weekdays' },
+];
 
-/** A one-off gets its own text; anything else borrows the goal's name. */
-const ONE_OFF = 'one-off';
+const chip = (selected: boolean) =>
+    cn(
+        'min-h-[40px] rounded-full border px-3.5 font-inter text-[13px] font-medium transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)] focus-visible:ring-offset-2',
+        selected
+            ? 'border-[var(--color-free)] bg-[var(--color-free-tint)] text-[var(--color-free)]'
+            : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)]',
+    );
 
-export const ReminderForm: React.FC<ReminderFormProps> = ({ goals, onSubmit, onCancel }) => {
-    const [target, setTarget] = useState<string>(ONE_OFF);
+/**
+ * A reminder for something that came up — "Call the dentist at 4", "Pay the
+ * fee on Friday". Goals aren't offered here: they are already suggested in
+ * your free time, and a fixed-time reminder for one would ignore the schedule.
+ */
+export const ReminderForm: React.FC<ReminderFormProps> = ({ onSubmit, onCancel }) => {
     const [label, setLabel] = useState('');
     const [when, setWhen] = useState('');
     const [recurrence, setRecurrence] = useState<RecurrenceRule>('none');
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const isOneOff = target === ONE_OFF;
+    const titleId = useId();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
 
-        if (isOneOff && !label.trim()) {
+        if (!label.trim()) {
             setError('Give the reminder a name.');
             return;
         }
@@ -49,8 +59,8 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ goals, onSubmit, onC
         setIsSubmitting(true);
         try {
             await onSubmit({
-                goal_id: isOneOff ? null : target,
-                label: isOneOff ? label.trim() : null,
+                goal_id: null,
+                label: label.trim(),
                 // A datetime-local value is the user's own wall clock, which is
                 // exactly how the server reads a naive time.
                 scheduled_time: when,
@@ -68,44 +78,40 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ goals, onSubmit, onC
     return (
         <form
             onSubmit={handleSubmit}
-            className="flex flex-col gap-4 p-4 rounded-[10px] border border-[var(--color-border)]"
+            aria-labelledby={titleId}
+            className="flex flex-col gap-4 rounded-[16px] border border-[var(--color-free)]/40 bg-[var(--color-surface)] p-4 sm:p-5"
         >
-            <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium" htmlFor="reminder-target">
-                    What for
-                </label>
-                <select
-                    id="reminder-target"
-                    className={SELECT_CLASS}
-                    value={target}
-                    onChange={(e) => setTarget(e.target.value)}
-                >
-                    <option value={ONE_OFF}>One-off task…</option>
-                    {goals.map((goal) => (
-                        <option key={goal.id} value={goal.id}>
-                            {goal.name}
-                        </option>
-                    ))}
-                </select>
+            <div className="flex items-start gap-3">
+                <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--color-free-tint)] text-[var(--color-free)]">
+                    <BellPlus className="h-4 w-4" />
+                </span>
+                <div>
+                    <h2 id={titleId} className="font-display text-[17px] font-semibold leading-tight text-[var(--color-ink)]">
+                        New reminder
+                    </h2>
+                    <p className="mt-1 text-[13px] leading-snug text-[var(--color-ink-muted)]">
+                        For something that isn't in your schedule. Telegram reminds you at that time.
+                    </p>
+                </div>
             </div>
 
-            {isOneOff && (
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-[13px] font-medium" htmlFor="reminder-label">
-                        Task name
-                    </label>
-                    <Input
-                        id="reminder-label"
-                        value={label}
-                        onChange={(e) => setLabel(e.target.value)}
-                        placeholder="e.g. Call the dentist"
-                        maxLength={150}
-                    />
-                </div>
-            )}
+            <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-medium text-[var(--color-ink)]" htmlFor="reminder-label">
+                    Remind me to
+                </label>
+                <Input
+                    id="reminder-label"
+                    name="reminder-label"
+                    autoComplete="off"
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    placeholder="Call the dentist…"
+                    maxLength={150}
+                />
+            </div>
 
             <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium" htmlFor="reminder-when">
+                <label className="text-[13px] font-medium text-[var(--color-ink)]" htmlFor="reminder-when">
                     When
                 </label>
                 <Input
@@ -113,24 +119,34 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({ goals, onSubmit, onC
                     type="datetime-local"
                     value={when}
                     onChange={(e) => setWhen(e.target.value)}
+                    className="font-mono"
                 />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium" htmlFor="reminder-recurrence">
-                    Repeat
-                </label>
-                <select
-                    id="reminder-recurrence"
-                    className={SELECT_CLASS}
-                    value={recurrence}
-                    onChange={(e) => setRecurrence(e.target.value as RecurrenceRule)}
-                >
-                    <option value="none">Don't repeat</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekdays">Weekdays</option>
-                </select>
-            </div>
+            <fieldset className="flex flex-col gap-2">
+                <legend className="mb-2 text-[13px] font-medium text-[var(--color-ink)]">Repeat</legend>
+                <div className="flex flex-wrap gap-2">
+                    {REPEATS.map((r) => (
+                        <label
+                            key={r.value}
+                            className={cn(
+                                chip(recurrence === r.value),
+                                'inline-flex cursor-pointer items-center has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--color-free)] has-[:focus-visible]:ring-offset-2',
+                            )}
+                        >
+                            <input
+                                type="radio"
+                                name="reminder-repeat"
+                                value={r.value}
+                                checked={recurrence === r.value}
+                                onChange={() => setRecurrence(r.value)}
+                                className="sr-only"
+                            />
+                            {r.label}
+                        </label>
+                    ))}
+                </div>
+            </fieldset>
 
             {error && <p className="text-[13px] text-[var(--color-error)] font-medium">{error}</p>}
 

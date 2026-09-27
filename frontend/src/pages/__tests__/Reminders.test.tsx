@@ -14,7 +14,8 @@ const makeReminder = (overrides = {}) => ({
     user_id: 'u1',
     goal_id: null,
     label: 'Call the dentist',
-    scheduled_time: '2026-09-10T17:00:00Z',
+    // A week out, so it is always upcoming.
+    scheduled_time: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     status: 'pending',
     is_recurring: false,
     recurrence_rule: 'none',
@@ -31,65 +32,76 @@ const futureLocalValue = () => {
 describe('Reminders', () => {
     beforeEach(() => vi.unstubAllGlobals());
 
-    it('lists a reminder with its status', async () => {
-        mockFetch({
-            ...authed,
-            '/api/goals/': { body: [] },
-            '/api/reminders/': { body: [makeReminder()] },
-        });
+    it('lists an upcoming reminder of your own', async () => {
+        mockFetch({ ...authed, '/api/reminders/': { body: [makeReminder()] } });
 
         renderWithProviders(<Reminders />);
 
         expect(await screen.findByText('Call the dentist')).toBeInTheDocument();
-        // Scoped to the pill: "Pending" is also one of the filter dropdown's options.
-        expect(screen.getByText('Pending', { selector: 'span' })).toBeInTheDocument();
+        // No status filters or pills: this screen is only what's coming up.
+        expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+        expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     });
 
-    it('marks a recurring reminder as repeating', async () => {
+    it('keeps a repeating reminder even though its first time has passed', async () => {
         mockFetch({
             ...authed,
-            '/api/goals/': { body: [] },
             '/api/reminders/': {
-                body: [makeReminder({ is_recurring: true, recurrence_rule: 'weekdays' })],
+                body: [
+                    makeReminder({
+                        scheduled_time: '2026-01-05T09:00:00Z',
+                        is_recurring: true,
+                        recurrence_rule: 'weekdays',
+                    }),
+                ],
             },
         });
 
         renderWithProviders(<Reminders />);
 
         expect(await screen.findByText('Repeats on weekdays')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Repeating' })).toBeInTheDocument();
     });
 
-    it('tells a brand-new user they have no reminders yet', async () => {
-        mockFetch({ ...authed, '/api/goals/': { body: [] }, '/api/reminders/': { body: [] } });
-
-        renderWithProviders(<Reminders />);
-
-        expect(
-            await screen.findByText("You don't have any reminders yet."),
-        ).toBeInTheDocument();
-    });
-
-    it('distinguishes an empty filter from having no reminders at all', async () => {
+    it('leaves out goal suggestions and reminders already past', async () => {
         mockFetch({
             ...authed,
-            '/api/goals/': { body: [] },
-            // Order matters: the more specific key has to be matched first.
-            '/api/reminders/?status=done': { body: [] },
-            '/api/reminders/': { body: [makeReminder()] },
+            '/api/reminders/': {
+                body: [
+                    makeReminder({ id: 'g', goal_id: 'goal-1', label: 'DSA' }),
+                    makeReminder({ id: 'p', label: 'Old task', scheduled_time: '2026-01-05T09:00:00Z' }),
+                ],
+            },
         });
 
         renderWithProviders(<Reminders />);
-        await screen.findByText('Call the dentist');
 
-        await userEvent.selectOptions(screen.getByLabelText('Status'), 'done');
+        expect(await screen.findByText('No reminders coming up.')).toBeInTheDocument();
+        expect(screen.queryByText('DSA')).not.toBeInTheDocument();
+        expect(screen.queryByText('Old task')).not.toBeInTheDocument();
+    });
 
-        expect(await screen.findByText('No reminders match this filter.')).toBeInTheDocument();
+    it('deletes a reminder after an inline confirm', async () => {
+        const fetchMock = mockFetch({
+            ...authed,
+            '/api/reminders/': { body: [makeReminder()] },
+            '/api/reminders/r1': { status: 204 },
+        });
+
+        renderWithProviders(<Reminders />);
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Delete this reminder?' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
+
+        await waitFor(() => expect(screen.queryByText('Call the dentist')).not.toBeInTheDocument());
+        const deleted = fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE');
+        expect(String(deleted?.[0])).toContain('/api/reminders/r1');
+        expect(await screen.findByText('No reminders coming up.')).toBeInTheDocument();
     });
 
     it('offers a retry when the list fails to load', async () => {
         const fetchMock = mockFetch({
             ...authed,
-            '/api/goals/': { body: [] },
             '/api/reminders/': { status: 500 },
         });
 
@@ -106,14 +118,13 @@ describe('Reminders', () => {
     it('creates a one-off reminder from the form', async () => {
         const fetchMock = mockFetch({
             ...authed,
-            '/api/goals/': { body: [] },
             '/api/reminders/': { body: [] },
         });
 
         renderWithProviders(<Reminders />);
 
-        await userEvent.click(await screen.findByRole('button', { name: 'Add manual reminder' }));
-        await userEvent.type(screen.getByLabelText('Task name'), 'Stretch');
+        await userEvent.click(await screen.findByRole('button', { name: 'Add reminder' }));
+        await userEvent.type(screen.getByLabelText('Remind me to'), 'Stretch');
         // datetime-local doesn't accept typed input reliably; set it directly.
         fireEvent.change(screen.getByLabelText('When'), { target: { value: futureLocalValue() } });
         await userEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -133,12 +144,12 @@ describe('Reminders', () => {
     });
 
     it('refuses to schedule a one-off in the past', async () => {
-        mockFetch({ ...authed, '/api/goals/': { body: [] }, '/api/reminders/': { body: [] } });
+        mockFetch({ ...authed, '/api/reminders/': { body: [] } });
 
         renderWithProviders(<Reminders />);
 
-        await userEvent.click(await screen.findByRole('button', { name: 'Add manual reminder' }));
-        await userEvent.type(screen.getByLabelText('Task name'), 'Too late');
+        await userEvent.click(await screen.findByRole('button', { name: 'Add reminder' }));
+        await userEvent.type(screen.getByLabelText('Remind me to'), 'Too late');
         fireEvent.change(screen.getByLabelText('When'), {
             target: { value: '2020-01-01T09:00' },
         });

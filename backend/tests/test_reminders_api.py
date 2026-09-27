@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 import pytest_asyncio
 from sqlalchemy.future import select
 
-from app.db.models import CompletionLog
+from app.db.models import CompletionLog, Reminder
 
 
 def in_days(days: float) -> str:
@@ -234,6 +234,18 @@ class TestOwnership:
         )
         assert res.status_code == 404
 
+    async def test_another_users_reminder_cannot_be_deleted(
+        self, other_users_reminder, auth_client, db_session
+    ):
+        res = await auth_client.delete(f"/api/reminders/{other_users_reminder['id']}")
+        assert res.status_code == 404
+        still_there = (
+            await db_session.execute(
+                select(Reminder).where(Reminder.id == other_users_reminder["id"])
+            )
+        ).scalars().first()
+        assert still_there is not None
+
     @pytest_asyncio.fixture
     async def other_users_goal(self, client, unique_email):
         """Create a goal owned by user A, then drop A's token."""
@@ -252,6 +264,37 @@ class TestOwnership:
             json={"goal_id": other_users_goal["id"], "scheduled_time": in_days(1)},
         )
         assert res.status_code == 404
+
+
+class TestDeleteReminder:
+    async def test_a_deleted_reminder_is_gone(self, auth_client):
+        reminder = await add_reminder(auth_client)
+
+        res = await auth_client.delete(f"/api/reminders/{reminder['id']}")
+
+        assert res.status_code == 204
+        assert (await auth_client.get("/api/reminders/")).json() == []
+
+    async def test_its_history_goes_with_it(self, auth_client, db_session):
+        reminder = await add_reminder(auth_client)
+        await auth_client.put(f"/api/reminders/{reminder['id']}/status", json={"status": "done"})
+
+        await auth_client.delete(f"/api/reminders/{reminder['id']}")
+
+        logs = (
+            await db_session.execute(
+                select(CompletionLog).where(CompletionLog.reminder_id == reminder["id"])
+            )
+        ).scalars().all()
+        assert logs == []
+
+    async def test_a_missing_reminder_is_404(self, auth_client):
+        res = await auth_client.delete("/api/reminders/00000000-0000-0000-0000-000000000000")
+        assert res.status_code == 404
+
+    async def test_requires_authentication(self, client):
+        res = await client.delete("/api/reminders/00000000-0000-0000-0000-000000000000")
+        assert res.status_code == 401
 
 
 class TestSchedulingAroundNow:

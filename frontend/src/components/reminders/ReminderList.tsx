@@ -1,58 +1,24 @@
 import React from 'react';
-import type { Reminder, ReminderStatus } from '../../types';
+import { Repeat, Trash2 } from 'lucide-react';
+import { InlineConfirm } from '../ui/InlineConfirm';
+import type { Reminder } from '../../types';
 
-/**
- * Status is display-only here by design: Done / Later / Skip are actioned from
- * Telegram in MVP (UX Flow Document Section 8), so these are labels, not
- * buttons.
- *
- * Every pill carries its word as well as its colour — colour alone is not an
- * accessible signal (Design Brief Section 9).
- */
-const STATUS_STYLES: Record<ReminderStatus, { label: string; className: string }> = {
-    pending: {
-        label: 'Pending',
-        className: 'text-[var(--color-ink-muted)] border border-[var(--color-border)]',
-    },
-    done: {
-        label: 'Done',
-        className: 'text-[var(--color-free)] bg-[var(--color-free)]/15',
-    },
-    later: {
-        label: 'Later',
-        className: 'text-[var(--color-priority-medium)] bg-[var(--color-priority-medium)]/15',
-    },
-    skipped: {
-        label: 'Skipped',
-        className: 'text-[var(--color-ink-muted)] bg-[var(--color-ink-muted)]/12',
-    },
-};
-
-const StatusPill = ({ status }: { status: ReminderStatus }) => {
-    const { label, className } = STATUS_STYLES[status];
-    return (
-        <span
-            className={`inline-flex items-center px-[10px] py-[4px] rounded-full font-inter font-medium text-[12px] leading-none ${className}`}
-        >
-            {label}
-        </span>
-    );
-};
-
-/** "Tue 3 Sep, 7:00 PM" — weekday included because reminders are time-of-day things. */
-const formatWhen = (iso: string) => {
-    const when = new Date(iso);
-    const day = when.toLocaleDateString(undefined, {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-    });
-    // Built from the local hours rather than toLocaleString so the clock reads
-    // the same here as everywhere else in the app and in the bot.
+/** "7:00 PM", built by hand so the clock reads the same as everywhere else. */
+const clock = (when: Date) => {
     const hours = when.getHours();
-    const suffix = hours < 12 ? 'AM' : 'PM';
     const hour12 = hours % 12 === 0 ? 12 : hours % 12;
-    return `${day}, ${hour12}:${String(when.getMinutes()).padStart(2, '0')} ${suffix}`;
+    return `${hour12}:${String(when.getMinutes()).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
+};
+
+const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+/** "Today", "Tomorrow", otherwise "Tue 3 Sep". */
+const dayHeading = (d: Date, now = new Date()) => {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (dayKey(d) === dayKey(now)) return 'Today';
+    if (dayKey(d) === dayKey(tomorrow)) return 'Tomorrow';
+    return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
 const RECURRENCE_LABEL: Record<string, string> = {
@@ -60,38 +26,86 @@ const RECURRENCE_LABEL: Record<string, string> = {
     weekdays: 'Repeats on weekdays',
 };
 
-interface ReminderListProps {
-    reminders: Reminder[];
+interface RowProps {
+    reminder: Reminder;
+    repeating?: boolean;
+    onDelete: (id: string) => Promise<unknown>;
 }
 
-export const ReminderList: React.FC<ReminderListProps> = ({ reminders }) => (
-    <ul className="divide-y divide-[var(--color-border)] border-y border-[var(--color-border)]">
-        {reminders.map((reminder) => (
-            <li
-                key={reminder.id}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 first:pt-0 last:pb-0"
+const Row = ({ reminder, repeating, onDelete }: RowProps) => (
+    <li className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 pl-4 pr-2 py-2">
+        <span className="font-mono text-[13px] font-medium text-[var(--color-ink)]">
+            {clock(new Date(reminder.scheduled_time))}
+        </span>
+        <div className="min-w-0">
+            <p className="font-inter text-[15px] text-[var(--color-ink)] break-words">{reminder.label}</p>
+            {repeating && (
+                <p className="mt-0.5 inline-flex items-center gap-1 text-[12px] text-[var(--color-ink-muted)]">
+                    <Repeat aria-hidden="true" className="h-3 w-3" />
+                    {RECURRENCE_LABEL[reminder.recurrence_rule]}
+                </p>
+            )}
+        </div>
+        <InlineConfirm
+            promptMessage={repeating ? 'Stop this reminder?' : 'Delete this reminder?'}
+            confirmLabel="Yes, delete"
+            onConfirm={() => onDelete(reminder.id)}
+        >
+            {/* InlineConfirm is the button; this is only its face. */}
+            <span
+                title="Delete"
+                className="grid h-10 w-10 place-items-center rounded-[10px] text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-surface-soft)] hover:text-[var(--color-error)]"
             >
-                <div className="flex-1 min-w-[180px]">
-                    <div className="flex items-center gap-2">
-                        <span className="text-[15px] font-inter">{reminder.label}</span>
-                        {reminder.is_recurring && (
-                            <span
-                                className="text-[13px] text-[var(--color-ink-muted)]"
-                                title={RECURRENCE_LABEL[reminder.recurrence_rule]}
-                            >
-                                <span aria-hidden="true">↻</span>
-                                <span className="sr-only">
-                                    {RECURRENCE_LABEL[reminder.recurrence_rule]}
-                                </span>
-                            </span>
-                        )}
-                    </div>
-                    <div className="text-[13px] text-[var(--color-ink-muted)]">
-                        {formatWhen(reminder.scheduled_time)}
-                    </div>
-                </div>
-                <StatusPill status={reminder.status} />
-            </li>
-        ))}
-    </ul>
+                <Trash2 aria-hidden="true" className="h-4 w-4" />
+            </span>
+        </InlineConfirm>
+    </li>
 );
+
+const Group = ({ heading, children }: { heading: string; children: React.ReactNode }) => (
+    <section aria-label={heading} className="grid gap-2">
+        <h2 className="font-display text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-muted)]">
+            {heading}
+        </h2>
+        <ul className="overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
+            {children}
+        </ul>
+    </section>
+);
+
+/** Coming up, day by day; repeating reminders in their own list after. */
+export const ReminderList: React.FC<{
+    reminders: Reminder[];
+    onDelete: (id: string) => Promise<unknown>;
+}> = ({ reminders, onDelete }) => {
+    const once = reminders.filter((r) => !r.is_recurring);
+    const repeating = reminders.filter((r) => r.is_recurring);
+
+    // The API sends them in time order, so consecutive rows share a day.
+    const days: { heading: string; items: Reminder[] }[] = [];
+    for (const reminder of once) {
+        const heading = dayHeading(new Date(reminder.scheduled_time));
+        const last = days[days.length - 1];
+        if (last && last.heading === heading) last.items.push(reminder);
+        else days.push({ heading, items: [reminder] });
+    }
+
+    return (
+        <div className="grid gap-5">
+            {days.map((day) => (
+                <Group key={day.heading} heading={day.heading}>
+                    {day.items.map((r) => (
+                        <Row key={r.id} reminder={r} onDelete={onDelete} />
+                    ))}
+                </Group>
+            ))}
+            {repeating.length > 0 && (
+                <Group heading="Repeating">
+                    {repeating.map((r) => (
+                        <Row key={r.id} reminder={r} repeating onDelete={onDelete} />
+                    ))}
+                </Group>
+            )}
+        </div>
+    );
+};
