@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { CalendarDays, Moon } from 'lucide-react';
 import { addDaysOff, deleteDayOff, getDaysOff } from '../../api';
 import type { DayOff, DayOfWeek } from '../../types';
 import { Button } from '../ui/Button';
@@ -58,7 +59,7 @@ interface QuietDaysProps {
 }
 
 const inputClass =
-    'h-10 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]';
+    'h-11 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]';
 
 /**
  * One idea, two ways to say it: every week ("every Saturday") or on a date
@@ -138,20 +139,25 @@ export const QuietDays: React.FC<QuietDaysProps> = ({ quietDays, onChangeQuietDa
     const stretches = toStretches(days);
 
     return (
-        <section className="border border-border rounded-lg bg-card p-4 flex flex-col gap-3">
-            <div>
-                <h2 className="font-semibold text-lg">Quiet days</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                    No lecture warnings and no suggestions on these days. Reminders you set yourself still
-                    arrive.
-                </p>
+        <section className="border border-[var(--color-border)] rounded-[16px] bg-[var(--color-surface)] p-4 sm:p-5 flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+                <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--color-free-tint)] text-[var(--color-free)]">
+                    <Moon className="h-4 w-4" />
+                </span>
+                <div>
+                    <h2 className="font-display font-semibold text-[17px] leading-tight text-[var(--color-ink)]">Quiet days</h2>
+                    <p className="text-[13px] text-[var(--color-ink-muted)] mt-1 leading-snug">
+                        No lecture warnings and no suggestions on these days. Reminders you set yourself still
+                        arrive.
+                    </p>
+                </div>
             </div>
 
             <div className="flex flex-col gap-2">
                 <p className="text-sm font-medium" id="quiet-weekdays">
                     Every week
                 </p>
-                <div role="group" aria-labelledby="quiet-weekdays" className="flex flex-wrap gap-2">
+                <div role="group" aria-labelledby="quiet-weekdays" className="grid grid-cols-7 gap-1.5">
                     {WEEK.map((day) => {
                         const quiet = quietDays.includes(day.id);
                         return (
@@ -162,7 +168,7 @@ export const QuietDays: React.FC<QuietDaysProps> = ({ quietDays, onChangeQuietDa
                                 aria-label={`${day.long}: ${quiet ? 'quiet' : 'notifications on'}`}
                                 disabled={pendingDay !== null}
                                 onClick={() => toggleWeekday(day.id)}
-                                className={`h-9 min-w-[3.25rem] rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)] disabled:opacity-60 ${
+                                className={`h-11 rounded-[12px] border px-1 font-display text-[12px] font-semibold transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)] disabled:opacity-60 ${
                                     quiet
                                         ? 'border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-bg)]'
                                         : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-ink)] hover:border-[var(--color-free)]'
@@ -175,19 +181,19 @@ export const QuietDays: React.FC<QuietDaysProps> = ({ quietDays, onChangeQuietDa
                 </div>
             </div>
 
-            <p className="text-sm font-medium border-t border-border pt-3">On dates</p>
+            <p className="text-sm font-medium border-t border-[var(--color-border)] pt-3">On dates</p>
 
             {stretches.length > 0 ? (
                 <ul className="flex flex-col gap-2">
                     {stretches.map((stretch) => (
                         <li
                             key={stretch.ids[0]}
-                            className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-md border border-border bg-background"
+                            className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-[12px] bg-[var(--color-surface-soft)]"
                         >
-                            <span className="text-sm min-w-0 break-words">
+                            <CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-[var(--color-ink-muted)]" />
+                            <span className="flex-1 text-sm min-w-0 break-words">
                                 <span className="font-medium">{stretch.label}</span>
-                                <span className="text-muted-foreground">
-                                    {' · '}
+                                <span className="block font-mono text-[12px] text-[var(--color-ink-muted)]">
                                     {formatDay(stretch.first)}
                                     {stretch.last !== stretch.first && ` – ${formatDay(stretch.last)}`}
                                 </span>

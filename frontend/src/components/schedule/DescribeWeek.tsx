@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileUp, Mic, Square } from 'lucide-react';
+import { FileUp, Mic, Sparkles, Square } from 'lucide-react';
 import { createScheduleBlocks, draftScheduleBlocks, draftScheduleFromPdf } from '../../api';
 import { isVoiceSupported, useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import type { ScheduleBlockCreate, ScheduleDraftBlock } from '../../types';
@@ -98,13 +98,18 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
         setDraft((prev) => (prev ? prev.filter((_, i) => i !== index) : prev));
 
     return (
-        <section className="border border-border rounded-lg bg-card p-4 flex flex-col gap-3">
-            <div>
-                <h2 className="font-semibold text-lg">Describe your week</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
+        <section className="border border-[var(--color-border)] rounded-[16px] bg-[var(--color-surface)] p-4 sm:p-5 flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+                <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--color-free-tint)] text-[var(--color-free)]">
+                    <Sparkles className="h-4 w-4" />
+                </span>
+                <div>
+                <h2 className="font-display font-semibold text-[17px] leading-tight text-[var(--color-ink)]">Describe your week</h2>
+                <p className="text-[13px] text-[var(--color-ink-muted)] mt-1 leading-snug">
                     Type it or say it, the way you'd tell a friend. You'll see what it understood before
                     anything is saved.
                 </p>
+                </div>
             </div>
 
             <textarea
@@ -116,10 +121,10 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                 placeholder={EXAMPLE}
                 rows={3}
                 maxLength={4000}
-                className="w-full rounded-[8px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[15px] text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
+                className="w-full rounded-[12px] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] leading-relaxed text-[var(--color-ink)] placeholder-[var(--color-ink-muted)] outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)]"
             />
 
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 {canUseVoice && (
                     <Button
                         type="button"
@@ -144,15 +149,22 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                         )}
                     </Button>
                 )}
-                <Button onClick={read} disabled={isReading || !text.trim() || voice.state !== 'idle'}>
+                <Button className="flex-1" onClick={read} disabled={isReading || !text.trim() || voice.state !== 'idle'}>
                     {isReading && !pdf ? 'Previewing…' : 'Preview schedule'}
                 </Button>
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-border pt-3">
-                <p className="text-sm font-medium">Have your college timetable as a PDF?</p>
+            <div
+                aria-hidden="true"
+                className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 font-mono text-[11px] uppercase tracking-[0.1em] text-[var(--color-ink-muted)] before:h-px before:bg-[var(--color-border)] before:content-[''] after:h-px after:bg-[var(--color-border)] after:content-['']"
+            >
+                or
+            </div>
+
+            <div className="flex flex-col gap-2 rounded-[12px] border-[1.5px] border-dashed border-[var(--color-border)] p-3">
+                <p className="text-[14px] font-medium text-[var(--color-ink)]">Have your college timetable as a PDF?</p>
                 <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex items-center gap-2 cursor-pointer rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm hover:border-[var(--color-free)] focus-within:ring-[3px] focus-within:ring-[var(--color-free-tint)]">
+                    <label className="inline-flex min-h-[44px] items-center gap-2 cursor-pointer rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm hover:border-[var(--color-free)] focus-within:ring-[3px] focus-within:ring-[var(--color-free-tint)]">
                         <FileUp aria-hidden="true" className="h-4 w-4" />
                         <span className="min-w-0 truncate max-w-[14rem]">{pdf ? pdf.name : 'Choose PDF'}</span>
                         <input
@@ -167,7 +179,7 @@ export const DescribeWeek: React.FC<DescribeWeekProps> = ({ onSaved }) => {
                         {isReading && pdf ? 'Previewing…' : 'Preview timetable'}
                     </Button>
                 </div>
-                <p className="text-[13px] text-muted-foreground">
+                <p className="text-[13px] text-[var(--color-ink-muted)]">
                     Every batch's and elective's option is listed, like "DSL / IOE / ROSPL lab". Remove any
                     class that isn't yours before saving.
                 </p>

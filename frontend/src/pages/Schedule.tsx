@@ -4,6 +4,7 @@ import { DescribeWeek } from '../components/schedule/DescribeWeek';
 import { ScheduleList } from '../components/schedule/ScheduleList';
 import { useAuth } from '../contexts/AuthContext';
 import { useScheduleBlocks } from '../hooks/useScheduleBlocks';
+import { toMinutes } from '../utils/time';
 import type { DayOfWeek, ScheduleBlockCreate } from '../types';
 
 export const Schedule = () => {
@@ -11,16 +12,21 @@ export const Schedule = () => {
   const { user, refreshUser } = useAuth();
   const quietDays = user?.quiet_days ?? [];
 
+  const windowStart = toMinutes(user?.day_start_time ?? '06:00:00');
+  const windowEnd = toMinutes(user?.day_end_time ?? '23:00:00');
+
   const saveQuietDays = async (days: DayOfWeek[]) => {
     await updatePreferences({ quiet_days: days });
     await refreshUser();
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 max-w-4xl mx-auto mb-12">
+    <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300 max-w-[720px] mx-auto mb-12">
       <header>
-        <h1 className="font-display font-semibold text-[24px]">Schedule</h1>
-        <p className="text-[var(--color-ink-muted)]">Manage your weekly commitments.</p>
+        <h1 className="font-display font-semibold text-[26px] leading-[32px] sm:text-[28px] text-[var(--color-ink)]">
+          Schedule
+        </h1>
+        <p className="text-[13px] text-[var(--color-ink-muted)] mt-1">Your week, Monday to Sunday</p>
       </header>
 
       {error && <p className="text-[var(--color-error)] font-medium">{error}</p>}
@@ -38,6 +44,8 @@ export const Schedule = () => {
           onEditBlock={editBlock}
           onDeleteBlock={removeBlock}
           quietDays={quietDays}
+          windowStart={windowStart}
+          windowEnd={windowEnd}
         />
       )}
 
