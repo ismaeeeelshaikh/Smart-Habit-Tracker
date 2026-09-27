@@ -32,8 +32,7 @@ const sheetRow =
   "flex items-center gap-3 min-h-[48px] px-3 rounded-[8px] font-inter text-[15px] font-medium transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)]";
 
 export const AppLayout = () => {
-  const { logout, user } = useAuth();
-  const initial = user?.email?.[0] ?? '?';
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -91,26 +90,12 @@ export const AppLayout = () => {
               ))}
             </nav>
           </div>
-          <button 
-            onClick={handleLogout}
-            className="flex items-center space-x-2 min-h-[44px] px-3 rounded-[8px] text-[var(--color-ink-muted)] hover:text-[var(--color-error)] font-inter text-sm font-medium transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-error)]"
-          >
-            <LogOut className="w-4 h-4" aria-hidden="true" />
-            <span>Logout</span>
-          </button>
         </div>
       </header>
 
       {/* Mobile wordmark — the tab bar carries the navigation. */}
-      <header className="sm:hidden max-w-[960px] w-full mx-auto px-4 pt-4 flex items-center justify-between">
+      <header className="sm:hidden max-w-[960px] w-full mx-auto px-4 pt-4">
         <Wordmark />
-        <NavLink
-          to="/settings"
-          aria-label="Settings"
-          className="grid h-9 w-9 place-items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-soft)] font-display text-[13px] font-semibold uppercase text-[var(--color-ink)] touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)]"
-        >
-          {initial}
-        </NavLink>
       </header>
 
       {/* Main Content Area */}

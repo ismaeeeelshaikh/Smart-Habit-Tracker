@@ -1,16 +1,46 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Clock, KeyRound, LogOut, Send } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { TimePicker } from '../components/ui/TimePicker';
 import { TelegramConnect } from '../components/telegram/TelegramConnect';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError, changePassword, disconnectTelegram, updatePreferences } from '../api';
+import { formatDuration, formatTime, toMinutes } from '../utils/time';
 
 const inputClass =
-    'block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] ' +
-    'py-[10px] px-3 text-[var(--color-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-free)] text-[15px]';
+    'block w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg)] ' +
+    'h-11 px-3 text-[var(--color-ink)] focus-visible:outline-none focus-visible:border-[var(--color-free)] focus-visible:ring-[3px] focus-visible:ring-[var(--color-free-tint)] text-[15px]';
+
+const card = 'rounded-[16px] p-4 sm:p-5 space-y-4';
+
+/** A card's heading with its icon, the same shape on every section. */
+const SectionHeading = ({
+    icon: Icon,
+    title,
+    hint,
+}: {
+    icon: React.ComponentType<{ className?: string }>;
+    title: string;
+    hint?: string;
+}) => (
+    <div className="flex items-start gap-3">
+        <span
+            aria-hidden="true"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--color-free-tint)] text-[var(--color-free)]"
+        >
+            <Icon className="h-4 w-4" />
+        </span>
+        <div>
+            <h2 className="font-display text-[17px] font-semibold leading-tight text-[var(--color-ink)]">{title}</h2>
+            {hint && <p className="mt-1 text-[13px] leading-snug text-[var(--color-ink-muted)]">{hint}</p>}
+        </div>
+    </div>
+);
 
 const PasswordSection: React.FC = () => {
+    const [isOpen, setIsOpen] = useState(false);
     const [current, setCurrent] = useState('');
     const [next, setNext] = useState('');
     const [confirm, setConfirm] = useState('');
@@ -39,6 +69,7 @@ const PasswordSection: React.FC = () => {
             setCurrent('');
             setNext('');
             setConfirm('');
+            setIsOpen(false);
         } catch (err) {
             setError(
                 err instanceof ApiError ? err.message : 'Something went wrong. Please try again.',
@@ -49,74 +80,94 @@ const PasswordSection: React.FC = () => {
     };
 
     return (
-        <form className="space-y-4" onSubmit={handleSubmit}>
-            <h3 className="font-inter font-medium text-[15px]">Change password</h3>
+        <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionHeading icon={KeyRound} title="Password" />
+                {!isOpen && (
+                    <Button variant="secondary" className="text-sm px-3 py-1.5 h-auto" onClick={() => setIsOpen(true)}>
+                        Change password
+                    </Button>
+                )}
+            </div>
 
-            {error && <p className="text-[13px] text-[var(--color-error)]">{error}</p>}
             {success && (
                 <p className="text-[13px] text-[var(--color-priority-low)]" role="status">
                     {success}
                 </p>
             )}
 
-            <div>
-                <label className="block text-[13px] font-medium mb-1" htmlFor="current-password">
-                    Current password
-                </label>
-                <input
-                    id="current-password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={current}
-                    onChange={(e) => setCurrent(e.target.value)}
-                    className={inputClass}
-                    required
-                />
-            </div>
-            <div>
-                <label className="block text-[13px] font-medium mb-1" htmlFor="new-password">
-                    New password
-                </label>
-                <input
-                    id="new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={next}
-                    onChange={(e) => setNext(e.target.value)}
-                    className={inputClass}
-                    required
-                />
-            </div>
-            <div>
-                <label className="block text-[13px] font-medium mb-1" htmlFor="confirm-new-password">
-                    Confirm new password
-                </label>
-                <input
-                    id="confirm-new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    className={inputClass}
-                    required
-                />
-            </div>
-
-            <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Saving…' : 'Update password'}
-            </Button>
-        </form>
+            {isOpen && (
+                <form className="space-y-3" onSubmit={handleSubmit}>
+                    {error && <p className="text-[13px] text-[var(--color-error)]">{error}</p>}
+                    <div>
+                        <label className="block text-[13px] font-medium mb-1" htmlFor="current-password">
+                            Current password
+                        </label>
+                        <input
+                            id="current-password"
+                            type="password"
+                            autoComplete="current-password"
+                            value={current}
+                            onChange={(e) => setCurrent(e.target.value)}
+                            className={inputClass}
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[13px] font-medium mb-1" htmlFor="new-password">
+                            New password
+                        </label>
+                        <input
+                            id="new-password"
+                            type="password"
+                            autoComplete="new-password"
+                            value={next}
+                            onChange={(e) => setNext(e.target.value)}
+                            className={inputClass}
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[13px] font-medium mb-1" htmlFor="confirm-new-password">
+                            Confirm new password
+                        </label>
+                        <input
+                            id="confirm-new-password"
+                            type="password"
+                            autoComplete="new-password"
+                            value={confirm}
+                            onChange={(e) => setConfirm(e.target.value)}
+                            className={inputClass}
+                            required
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <Button type="button" variant="secondary" onClick={() => setIsOpen(false)} disabled={isSaving}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={isSaving}>
+                            {isSaving ? 'Saving…' : 'Update password'}
+                        </Button>
+                    </div>
+                </form>
+            )}
+        </div>
     );
 };
 
 /** Bounds free-slot detection: gaps outside these hours are never suggested. */
 const ActiveHoursSection: React.FC = () => {
     const { user, refreshUser } = useAuth();
-    const [start, setStart] = useState((user?.day_start_time ?? '08:00:00').slice(0, 5));
-    const [end, setEnd] = useState((user?.day_end_time ?? '22:00:00').slice(0, 5));
+    const savedStart = (user?.day_start_time ?? '08:00:00').slice(0, 5);
+    const savedEnd = (user?.day_end_time ?? '22:00:00').slice(0, 5);
+    const [start, setStart] = useState(savedStart);
+    const [end, setEnd] = useState(savedEnd);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+
+    const span = toMinutes(end) - toMinutes(start);
+    const changed = start !== savedStart || end !== savedEnd;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -145,48 +196,47 @@ const ActiveHoursSection: React.FC = () => {
 
     return (
         <form className="space-y-4" onSubmit={handleSubmit}>
-            <div>
-                <h3 className="font-inter font-medium text-[15px]">Active hours</h3>
-                <p className="text-[13px] text-[var(--color-ink-muted)] mt-1">
-                    We only suggest habits inside these hours, so a gap at 3am never shows up.
-                </p>
+            <SectionHeading
+                icon={Clock}
+                title="Active hours"
+                hint="We only suggest habits inside these hours, so a gap at 3 AM never shows up."
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+                <div>
+                    <label className="block text-[13px] font-medium mb-1" htmlFor="day-start">
+                        From
+                    </label>
+                    <TimePicker id="day-start" value={start} onChange={setStart} />
+                </div>
+                <div>
+                    <label className="block text-[13px] font-medium mb-1" htmlFor="day-end">
+                        To
+                    </label>
+                    <TimePicker id="day-end" value={end} onChange={setEnd} />
+                </div>
             </div>
 
+            <p className="text-[13px] text-[var(--color-ink-muted)]">
+                {span > 0 ? (
+                    <>
+                        Suggestions between <span className="font-mono">{formatTime(start)}</span> and{' '}
+                        <span className="font-mono">{formatTime(end)}</span> ·{' '}
+                        <span className="font-mono">{formatDuration(span)}</span> a day
+                    </>
+                ) : (
+                    'Pick an end time after the start time.'
+                )}
+            </p>
+
             {error && <p className="text-[13px] text-[var(--color-error)]">{error}</p>}
-            {success && (
+            {success && !changed && (
                 <p className="text-[13px] text-[var(--color-priority-low)]" role="status">
                     {success}
                 </p>
             )}
 
-            <div className="flex gap-4">
-                <div className="flex-1">
-                    <label className="block text-[13px] font-medium mb-1" htmlFor="day-start">
-                        From
-                    </label>
-                    <input
-                        id="day-start"
-                        type="time"
-                        value={start}
-                        onChange={(e) => setStart(e.target.value)}
-                        className={inputClass}
-                    />
-                </div>
-                <div className="flex-1">
-                    <label className="block text-[13px] font-medium mb-1" htmlFor="day-end">
-                        To
-                    </label>
-                    <input
-                        id="day-end"
-                        type="time"
-                        value={end}
-                        onChange={(e) => setEnd(e.target.value)}
-                        className={inputClass}
-                    />
-                </div>
-            </div>
-
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" disabled={isSaving || !changed}>
                 {isSaving ? 'Saving…' : 'Save active hours'}
             </Button>
         </form>
@@ -219,23 +269,32 @@ const TelegramSection = () => {
 
     if (!user?.telegram_linked) {
         return (
-            <>
-                <div className="bg-[var(--color-warning-bg)] p-4 rounded-[8px] text-[15px] font-inter text-[var(--color-ink)]">
+            <div className="space-y-4">
+                <SectionHeading icon={Send} title="Telegram" hint="Reminders and suggestions arrive here." />
+                <div className="bg-[var(--color-warning-bg)] px-4 py-3 rounded-[12px] text-[15px] font-inter text-[var(--color-ink)]">
                     You haven't connected Telegram yet. Reminders won't be delivered.
                 </div>
                 <TelegramConnect onConnected={refreshUser} />
-            </>
+            </div>
         );
     }
 
     return (
-        <div className="space-y-3">
-            <p className="text-[15px] font-inter">
-                Connected{user.telegram_username ? ` as @${user.telegram_username}` : ''}.
-            </p>
+        <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionHeading icon={Send} title="Telegram" hint="Reminders and suggestions arrive here." />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-free-tint)] px-2.5 py-1 font-inter text-[12px] font-medium text-[var(--color-free)]">
+                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-free)]" />
+                    Connected
+                </span>
+            </div>
+
+            {user.telegram_username && (
+                <p className="font-mono text-[14px] text-[var(--color-ink)]">@{user.telegram_username}</p>
+            )}
 
             {isConfirming ? (
-                <div className="space-y-2">
+                <div className="space-y-2 rounded-[12px] bg-[var(--color-surface-soft)] p-3">
                     <p className="text-[13px] text-[var(--color-ink-muted)]">
                         Disconnect Telegram? Reminders stop being delivered. Your history stays.
                     </p>
@@ -247,13 +306,13 @@ const TelegramSection = () => {
                         >
                             Cancel
                         </Button>
-                        <Button onClick={handleDisconnect} disabled={isDisconnecting}>
+                        <Button variant="destructive" onClick={handleDisconnect} disabled={isDisconnecting}>
                             {isDisconnecting ? 'Disconnecting…' : 'Yes, disconnect'}
                         </Button>
                     </div>
                 </div>
             ) : (
-                <Button variant="secondary" onClick={() => setIsConfirming(true)}>
+                <Button variant="destructive" className="-ml-3" onClick={() => setIsConfirming(true)}>
                     Disconnect
                 </Button>
             )}
@@ -273,44 +332,53 @@ export const Settings = () => {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-300 max-w-2xl mx-auto">
+        <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300 max-w-[720px] mx-auto mb-12">
             <header>
-                <h1 className="font-display font-semibold text-[24px]">Settings</h1>
+                <h1 className="font-display font-semibold text-[26px] leading-[32px] sm:text-[28px] text-[var(--color-ink)]">
+                    Settings
+                </h1>
             </header>
 
-            <Card className="p-6 space-y-6">
-                <div className="space-y-2">
-                    <h2 className="font-display font-semibold text-[18px]">Account</h2>
-                    <div className="text-[15px] font-inter">
-                        <span className="text-[var(--color-ink-muted)]">Email: </span>
-                        <span>{user?.email ?? '—'}</span>
-                    </div>
-                    <div className="text-[15px] font-inter">
-                        <span className="text-[var(--color-ink-muted)]">Timezone: </span>
-                        <span>{user?.timezone ?? '—'}</span>
-                    </div>
-                </div>
-
-                <div className="border-t border-[var(--color-border)] pt-6">
-                    <ActiveHoursSection />
-                </div>
-
-                <div className="border-t border-[var(--color-border)] pt-6">
-                    <PasswordSection />
+            <Card className="rounded-[16px] p-4 sm:p-5 flex items-center gap-4">
+                <span
+                    aria-hidden="true"
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-soft)] font-display text-[18px] font-semibold uppercase text-[var(--color-ink)]"
+                >
+                    {user?.email?.[0] ?? '?'}
+                </span>
+                <div className="min-w-0">
+                    <p className="font-inter text-[15px] font-medium text-[var(--color-ink)] break-all">
+                        {user?.email ?? '—'}
+                    </p>
+                    <p className="mt-0.5 text-[13px] text-[var(--color-ink-muted)]">
+                        Timezone <span className="font-mono">{user?.timezone ?? '—'}</span>
+                    </p>
                 </div>
             </Card>
 
-            <Card className="p-6 space-y-4">
-                <h2 className="font-display font-semibold text-[18px]">Telegram</h2>
+            <Card className={card}>
                 <TelegramSection />
             </Card>
 
-            <Card className="p-6 space-y-4">
-                <h2 className="font-display font-semibold text-[18px]">Session</h2>
-                <Button variant="secondary" onClick={handleLogout}>
-                    Log out
-                </Button>
+            {/* Mounted once the user is known, so the pickers start from the saved hours. */}
+            {user && (
+                <Card className={card}>
+                    <ActiveHoursSection />
+                </Card>
+            )}
+
+            <Card className={card}>
+                <PasswordSection />
             </Card>
+
+            <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] font-inter text-[15px] font-medium text-[var(--color-error)] transition-colors touch-manipulation hover:bg-[var(--color-surface-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-error)]"
+            >
+                <LogOut aria-hidden="true" className="h-4 w-4" />
+                Log out
+            </button>
         </div>
     );
 };
