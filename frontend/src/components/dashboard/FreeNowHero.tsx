@@ -157,8 +157,9 @@ export const FreeNowHero = ({
       </>
     );
   } else if (upcoming) {
-    eyebrow = 'Next free slot';
-    big = `in ${formatDurationShort(upcoming.start - nowMinutes)}`;
+    // "in" belongs to the label, so the number stands alone: NEXT FREE SLOT IN / 5h 20m.
+    eyebrow = 'Next free slot in';
+    big = formatDurationShort(upcoming.start - nowMinutes);
     line = (
       <span className="font-mono">
         {minutesToClock(upcoming.start)} – {minutesToClock(upcoming.end)} ·{' '}
