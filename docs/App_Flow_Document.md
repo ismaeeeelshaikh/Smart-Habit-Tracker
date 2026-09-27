@@ -386,6 +386,8 @@ Onboarding is a **linear 3-step wizard**. Users cannot skip ahead, but can go ba
 
 **Purpose:** Account management and Telegram link management post-onboarding.
 
+**Installable app (PWA, added 28 Sep 2026):** the web app ships a manifest ("Time Intel", opens full screen at `/dashboard`) and a service worker that caches only the app shell (JS, CSS, fonts, icons) — never API responses — and updates itself on each deploy. Settings shows an "Install the app" card only while there is something to do: an "Install app" button where the browser offers installing (Chrome, Edge, Android), or Share → Add to Home Screen steps on iPhone Safari; it's hidden once installed.
+
 **Entry points:** Global nav "Settings" link, "Connect now" banner from Dashboard.
 
 **Elements:**

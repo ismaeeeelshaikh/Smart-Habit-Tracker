@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, KeyRound, LogOut, Send } from 'lucide-react';
+import { Clock, KeyRound, LogOut, Send, Share, Smartphone } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { TimePicker } from '../components/ui/TimePicker';
 import { TelegramConnect } from '../components/telegram/TelegramConnect';
 import { useAuth } from '../contexts/AuthContext';
+import { promptInstall, useInstallState } from '../pwa/install';
 import { ApiError, changePassword, disconnectTelegram, updatePreferences } from '../api';
 import { formatDuration, formatTime, toMinutes } from '../utils/time';
 
@@ -322,6 +323,41 @@ const TelegramSection = () => {
     );
 };
 
+/**
+ * Put the app on the home screen. Shown only while there's something to do:
+ * hidden once installed, and on browsers that offer no way to install.
+ */
+const InstallSection: React.FC = () => {
+    const { canPrompt, installed, isIOS } = useInstallState();
+    if (installed || (!canPrompt && !isIOS)) return null;
+
+    return (
+        <Card className={card}>
+            <SectionHeading
+                icon={Smartphone}
+                title="Install the app"
+                hint="Opens full screen from your home screen, like any other app."
+            />
+            {canPrompt ? (
+                <Button onClick={() => promptInstall()} className="rounded-[12px]">
+                    Install app
+                </Button>
+            ) : (
+                <ol className="space-y-1.5 text-[14px] text-[var(--color-ink)]">
+                    <li className="flex items-center gap-2">
+                        <span className="font-mono text-[var(--color-ink-muted)]">1.</span>
+                        Tap <Share aria-label="Share" className="h-4 w-4 text-[var(--color-free)]" /> Share in Safari
+                    </li>
+                    <li className="flex items-center gap-2">
+                        <span className="font-mono text-[var(--color-ink-muted)]">2.</span>
+                        Choose <span className="font-medium">Add to Home Screen</span>
+                    </li>
+                </ol>
+            )}
+        </Card>
+    );
+};
+
 /** Who you are: the name the app calls you by, your email and timezone. */
 const AccountSection: React.FC = () => {
     const { user, refreshUser } = useAuth();
@@ -440,6 +476,8 @@ export const Settings = () => {
             <Card className={card}>
                 <TelegramSection />
             </Card>
+
+            <InstallSection />
 
             {/* Mounted once the user is known, so the pickers start from the saved hours. */}
             {user && (
